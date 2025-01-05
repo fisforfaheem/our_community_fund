@@ -7,10 +7,13 @@ import 'package:our_community_fund/services/notification_service.dart';
 import 'package:our_community_fund/screens/admin/record_payment_screen.dart';
 import 'package:our_community_fund/screens/admin/reports_screen.dart';
 import 'package:our_community_fund/screens/admin/payment_schedule_screen.dart';
+import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
+import 'package:our_community_fund/screens/admin/members_list_screen.dart';
 import 'package:our_community_fund/screens/guide_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:animations/animations.dart';
+import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -721,7 +724,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               title: const Text('View Payment History'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement payment history view
+                _showPaymentHistory(user);
               },
             ),
           ],
@@ -730,8 +733,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     );
   }
 
+  void _showPaymentHistory(UserModel user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentHistoryScreen(user: user),
+      ),
+    );
+  }
+
   void _showAllMembers() {
-    // TODO: Implement full members list view
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MembersListScreen()),
+    );
   }
 
   void _showSendNotificationDialog() {
