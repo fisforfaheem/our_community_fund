@@ -6,8 +6,9 @@ class PaymentModel {
   final String userName;
   final double amount;
   final DateTime date;
-  final String? note;
   final String recordedBy;
+  final String type;
+  final String? note;
 
   PaymentModel({
     required this.id,
@@ -15,31 +16,34 @@ class PaymentModel {
     required this.userName,
     required this.amount,
     required this.date,
-    this.note,
     required this.recordedBy,
+    this.type = 'regular',
+    this.note,
   });
-
-  factory PaymentModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return PaymentModel(
-      id: doc.id,
-      userId: data['userId'] ?? '',
-      userName: data['userName'] ?? '',
-      amount: (data['amount'] ?? 0).toDouble(),
-      date: (data['date'] as Timestamp).toDate(),
-      note: data['note'],
-      recordedBy: data['recordedBy'] ?? '',
-    );
-  }
 
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'userName': userName,
       'amount': amount,
-      'date': Timestamp.fromDate(date),
-      'note': note,
+      'date': date,
       'recordedBy': recordedBy,
+      'type': type,
+      if (note != null) 'note': note,
     };
+  }
+
+  factory PaymentModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return PaymentModel(
+      id: doc.id,
+      userId: data['userId'],
+      userName: data['userName'],
+      amount: (data['amount'] as num).toDouble(),
+      date: (data['date'] as Timestamp).toDate(),
+      recordedBy: data['recordedBy'],
+      type: data['type'] ?? 'regular',
+      note: data['note'],
+    );
   }
 }

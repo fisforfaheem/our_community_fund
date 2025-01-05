@@ -115,28 +115,37 @@ class NotificationService {
     }
   }
 
-  Future<void> sendPaymentReminder(UserModel user) async {
-    await sendNotificationToUser(
-      userId: user.id,
-      title: 'Payment Reminder',
-      body: 'Your monthly contribution is due. Please make your payment.',
-      data: {
-        'type': 'payment_reminder',
-        'userId': user.id,
-      },
-    );
+  Future<void> _sendNotification({
+    required String title,
+    required String body,
+    required String userId,
+    Map<String, dynamic>? data,
+  }) async {
+    await _firestore.collection('notifications').add({
+      'userId': userId,
+      'title': title,
+      'body': body,
+      'timestamp': FieldValue.serverTimestamp(),
+      'read': false,
+      if (data != null) ...data,
+    });
   }
 
   Future<void> sendPaymentConfirmation(UserModel user, double amount) async {
-    await sendNotificationToUser(
+    await _sendNotification(
+      title: 'Payment Received',
+      body: 'Thank you for your payment of \$${amount.toStringAsFixed(2)}',
       userId: user.id,
-      title: 'Payment Confirmed',
-      body: 'Your payment of \$${amount.toStringAsFixed(2)} has been received.',
-      data: {
-        'type': 'payment_confirmation',
-        'userId': user.id,
-        'amount': amount,
-      },
+    );
+  }
+
+  Future<void> sendExtraContributionConfirmation(
+      UserModel user, double amount) async {
+    await _sendNotification(
+      title: 'Extra Contribution Received',
+      body:
+          'Thank you for your extra contribution of \$${amount.toStringAsFixed(2)}',
+      userId: user.id,
     );
   }
 

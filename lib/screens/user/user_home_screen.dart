@@ -82,6 +82,113 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
+  void _showExtraContributionDialog() {
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    bool isLoading = false;
+
+    void handleContribution() {
+      if (isLoading) return;
+
+      final amount = double.tryParse(amountController.text);
+      if (amount == null || amount <= 0) {
+        return;
+      }
+
+      setState(() => isLoading = true);
+      _paymentService
+          .recordExtraContribution(
+        _currentUser.id,
+        amount,
+        noteController.text.trim(),
+      )
+          .then((_) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Extra contribution recorded successfully'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }).catchError((e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }).whenComplete(() {
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
+      });
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF232731),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Make Extra Contribution',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ModernTextField(
+                label: 'Amount',
+                controller: amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                prefixIcon: const Icon(Icons.attach_money),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an amount';
+                  }
+                  final amount = double.tryParse(value);
+                  if (amount == null || amount <= 0) {
+                    return 'Please enter a valid amount';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              ModernTextField(
+                label: 'Note (Optional)',
+                controller: noteController,
+                prefixIcon: const Icon(Icons.note),
+                // maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ModernButton(
+              label: 'Contribute',
+              onPressed: handleContribution,
+              icon: Icons.add_circle_outline,
+              isLoading: isLoading,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -255,16 +362,30 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                   ),
                 ],
               ),
-              if (!hasPaidThisMonth) ...[
-                const SizedBox(height: 16),
-                ModernButton(
-                  label: 'Make Payment',
-                  onPressed: () {
-                    // TODO: Implement payment flow
-                  },
-                  icon: Icons.payment,
-                ),
-              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  if (!hasPaidThisMonth)
+                    Expanded(
+                      child: ModernButton(
+                        label: 'Make Payment',
+                        onPressed: () {
+                          // TODO: Implement payment flow
+                        },
+                        icon: Icons.payment,
+                      ),
+                    ),
+                  if (!hasPaidThisMonth) const SizedBox(width: 12),
+                  Expanded(
+                    child: ModernButton(
+                      label: 'Extra Contribution',
+                      onPressed: _showExtraContributionDialog,
+                      icon: Icons.add_circle_outline,
+                      isOutlined: true,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
