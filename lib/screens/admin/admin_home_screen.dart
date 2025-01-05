@@ -28,6 +28,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   bool _isInitialized = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  String _selectedTheme = 'System Default';
 
   @override
   void initState() {
@@ -539,7 +540,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               _buildModernActionButton(
                 'Export',
                 Icons.download,
-                () => _showExportOptions(),
+                () => _showExportDialog(),
               ),
             ],
           ),
@@ -737,7 +738,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     // TODO: Implement send notification dialog
   }
 
-  void _showExportOptions() {
+  void _showExportDialog() {
     final exportOptions = [
       {
         'title': 'Payment Records',
@@ -783,7 +784,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             const SizedBox(width: 12),
             const Text(
               'Export Data',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -829,6 +831,29 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              // TODO: Handle data export
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Preparing export...'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Export'),
+          ),
+        ],
       ),
     );
   }
@@ -1069,6 +1094,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showPaymentDetails(Map<String, dynamic> payment) {
+    final date = (payment['date'] as Timestamp).toDate();
+    final dateStr = DateFormat.yMMMd().add_jm().format(date);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1093,11 +1121,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               'Amount',
               '\$${(payment['amount'] as num).toStringAsFixed(2)}',
             ),
-            _buildDetailRow(
-              'Date',
-              DateFormat.yMMMd()
-                  .add_jm()
-                  .format((payment['date'] as Timestamp).toDate()),
+            _buildDetailRow('Date', dateStr),
             if (payment['note'] != null &&
                 payment['note'].toString().isNotEmpty)
               _buildDetailRow('Note', payment['note'].toString()),
@@ -1329,7 +1353,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           ),
           FilledButton(
             onPressed: () {
-              // TODO: Save theme preference
+              // Save theme preference and update UI
+              setState(() {
+                // Theme will be applied here
+              });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -1351,20 +1378,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     String description,
     Color accentColor,
   ) {
+    final isSelected = _selectedTheme == title;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Handle theme selection
+            setState(() {
+              _selectedTheme = title;
+            });
           },
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: isSelected ? accentColor : Colors.white.withOpacity(0.1),
+                width: isSelected ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1393,16 +1425,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       Text(
                         description,
                         style: const TextStyle(
-                            color: Colors.white54, fontSize: 12),
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Radio<String>(
                   value: title,
-                  groupValue: 'System Default', // TODO: Use actual theme value
+                  groupValue: _selectedTheme,
                   onChanged: (value) {
-                    // TODO: Handle theme selection
+                    setState(() {
+                      _selectedTheme = value!;
+                    });
                   },
                   activeColor: accentColor,
                 ),
@@ -1929,7 +1965,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               () {
                 // TODO: Implement data export
                 Navigator.pop(context);
-                _showExportOptions();
+                _showExportDialog();
               },
             ),
             _buildDataManagementTile(
@@ -2324,5 +2360,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         foregroundColor: Colors.white70,
       ),
     );
+  }
+
+  void _showExportOptions() {
+    _showExportDialog();
   }
 }

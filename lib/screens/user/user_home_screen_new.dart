@@ -66,8 +66,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white70),
+            ),
           ),
           ModernButton(
             label: 'Logout',
@@ -86,7 +88,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 
@@ -103,8 +107,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 _buildWelcomeCard(),
                 const SizedBox(height: 24),
                 _buildPaymentStatus(),
-                const SizedBox(height: 24),
-                _buildPaymentStats(),
                 const SizedBox(height: 24),
                 _buildRecentPayments(),
               ],
@@ -162,7 +164,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.person, color: Colors.white, size: 32),
+            child: const Icon(
+              Icons.person,
+              color: Colors.white,
+              size: 32,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -202,8 +208,8 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final hasPaidThisMonth = data?['lastPayment'] != null &&
-            (data!['lastPayment'] as Timestamp).toDate().month ==
+        final hasPaidThisMonth = data?['lastPaymentDate'] != null &&
+            (data!['lastPaymentDate'] as Timestamp).toDate().month ==
                 DateTime.now().month;
 
         return ModernCard(
@@ -272,77 +278,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
-  Widget _buildPaymentStats() {
-    return StreamBuilder<Map<String, dynamic>>(
-      stream: _paymentService.getMonthlyStatsStream(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final stats = snapshot.data!;
-        final totalContributed = stats['monthlyTotal'] as double;
-        final collectionRate = stats['collectionRate'] as double;
-
-        return Row(
-          children: [
-            Expanded(
-              child: ModernCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Contributed',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '\$${totalContributed.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ModernCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Collection Rate',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${collectionRate.toStringAsFixed(1)}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildRecentPayments() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,64 +328,61 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 final date = (data['date'] as Timestamp).toDate();
                 final amount = data['amount'] as num;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ModernCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
+                return ModernCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Payment Received',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                DateFormat.yMMMd().add_jm().format(date),
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '\$${amount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Payment Received',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
+                            Text(
+                              DateFormat.yMMMd().add_jm().format(date),
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '\$${amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),

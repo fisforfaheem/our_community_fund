@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:our_community_fund/models/user_model.dart';
-import 'package:our_community_fund/models/notification_preferences.dart';
-import 'package:our_community_fund/services/notification_service.dart';
+import 'package:our_community_fund/services/auth_service.dart';
+import 'package:our_community_fund/widgets/common/gradient_background.dart';
 
 class ProfileEditScreen extends StatefulWidget {
-  final UserModel user;
-
-  const ProfileEditScreen({super.key, required this.user});
+  const ProfileEditScreen({super.key});
 
   @override
   State<ProfileEditScreen> createState() => _ProfileEditScreenState();
@@ -16,67 +12,75 @@ class ProfileEditScreen extends StatefulWidget {
 
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  // final _notificationService = NotificationService();
-  bool _isLoading = false;
-  NotificationPreferences? _preferences;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = true;
+  late UserModel _currentUser;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.user.name);
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    setState(() => _isLoading = true);
-    try {
-      // final prefs = await _notificationService.getPreferences(widget.user.id);
-      // setState(() => _preferences = prefs);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading preferences: $e')),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    _loadUserData();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveChanges() async {
+  Future<void> _loadUserData() async {
+    try {
+      final user = await _authService.getCurrentUser();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _nameController.text = user.name;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        // Update user profile
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.user.id)
-            .update({
-          'name': _nameController.text.trim(),
-        });
-
-        // Update notification preferences
-        if (_preferences != null) {
-          // await _notificationService.updatePreferences(_preferences!);
-        }
-
+        await _authService.updateUserProfile(
+          _currentUser.id,
+          _nameController.text.trim(),
+        );
         if (mounted) {
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully')),
+            const SnackBar(
+              content: Text('Profile updated successfully'),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
-          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error updating profile: $e')),
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         }
       } finally {
@@ -89,158 +93,159 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        actions: [
-          if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      body: GradientBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Edit Profile',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                ModernCard(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        ModernTextField(
+                          label: 'Full Name',
+                          controller: _nameController,
+                          prefixIcon: const Icon(Icons.person),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        ModernTextField(
+                          label: 'Phone Number',
+                          controller: _phoneController,
+                          prefixIcon: const Icon(Icons.phone),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 16),
+                        ModernTextField(
+                          label: 'Address',
+                          controller: _addressController,
+                          prefixIcon: const Icon(Icons.location_on),
+                          keyboardType: TextInputType.streetAddress,
+                        ),
+                        const SizedBox(height: 32),
+                        ModernButton(
+                          label: 'Save Changes',
+                          onPressed: _updateProfile,
+                          isLoading: _isLoading,
+                          icon: Icons.save,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _saveChanges,
-            ),
-        ],
-      ),
-      body: _isLoading && _preferences == null
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16.0),
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '👤 Personal Information',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Full Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.person),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          ListTile(
-                            leading: const Icon(Icons.email),
-                            title: const Text('Email'),
-                            subtitle: Text(widget.user.email),
-                            tileColor: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
-                                .withOpacity(0.3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_preferences != null)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '🔔 Notification Preferences',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SwitchListTile(
-                              title: const Text('Payment Reminders'),
-                              subtitle: const Text(
-                                  'Receive monthly payment reminders'),
-                              value: _preferences!.paymentReminders,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _preferences = _preferences!.copyWith(
-                                    paymentReminders: value,
-                                  );
-                                });
-                              },
-                            ),
-                            SwitchListTile(
-                              title: const Text('Payment Confirmations'),
-                              subtitle: const Text(
-                                  'Receive payment confirmation notifications'),
-                              value: _preferences!.paymentConfirmations,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _preferences = _preferences!.copyWith(
-                                    paymentConfirmations: value,
-                                  );
-                                });
-                              },
-                            ),
-                            SwitchListTile(
-                              title: const Text('System Updates'),
-                              subtitle: const Text(
-                                  'Receive important system update notifications'),
-                              value: _preferences!.systemUpdates,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _preferences = _preferences!.copyWith(
-                                    systemUpdates: value,
-                                  );
-                                });
-                              },
-                            ),
-                            SwitchListTile(
-                              title: const Text('Email Notifications'),
-                              subtitle: const Text(
-                                  'Receive notifications via email as well'),
-                              value: _preferences!.emailNotifications,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _preferences = _preferences!.copyWith(
-                                    emailNotifications: value,
-                                  );
-                                });
-                              },
-                            ),
-                          ],
+                const SizedBox(height: 24),
+                ModernCard(
+                  color: Colors.red.withOpacity(0.1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Account Settings',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                ],
-              ),
+                      const SizedBox(height: 16),
+                      ModernButton(
+                        label: 'Change Password',
+                        onPressed: () {
+                          // TODO: Implement password change
+                        },
+                        icon: Icons.lock,
+                        isOutlined: true,
+                      ),
+                      const SizedBox(height: 12),
+                      ModernButton(
+                        label: 'Delete Account',
+                        onPressed: () {
+                          // TODO: Implement account deletion
+                        },
+                        icon: Icons.delete_forever,
+                        color: Colors.red,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 }

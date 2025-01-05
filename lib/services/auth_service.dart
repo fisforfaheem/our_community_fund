@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:our_community_fund/models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -64,6 +65,32 @@ class AuthService {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<UserModel> getCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('No user is currently signed in');
+    }
+
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) {
+      throw Exception('User data not found');
+    }
+
+    return UserModel.fromFirestore(userDoc);
+  }
+
+  // Update user profile
+  Future<void> updateUserProfile(String userId, String name) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'name': name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update profile: ${e.toString()}');
     }
   }
 }

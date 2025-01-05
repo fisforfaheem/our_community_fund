@@ -58,6 +58,7 @@ class PaymentService {
         .collection('payments')
         .where('userId', isEqualTo: userId)
         .orderBy('date', descending: true)
+        .limit(10)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => PaymentModel.fromFirestore(doc))
@@ -151,5 +152,18 @@ class PaymentService {
         await _notificationService?.sendOverdueNotification(user);
       }
     }
+  }
+
+  Stream<DocumentSnapshot> getUserPaymentStatus(String userId) {
+    return _firestore.collection('users').doc(userId).snapshots();
+  }
+
+  Stream<QuerySnapshot> getUserPaymentsStream(String userId) {
+    return _firestore
+        .collection('payments')
+        .where('userId', isEqualTo: userId)
+        .orderBy('date', descending: true)
+        .limit(10)
+        .snapshots();
   }
 }
