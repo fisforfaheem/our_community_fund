@@ -5,15 +5,20 @@ class AppTheme {
   static ThemeData lightTheme(ColorScheme? lightDynamic) {
     final ColorScheme scheme = lightDynamic ??
         ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1565C0), // Primary blue
-          secondary: const Color(0xFF2E7D32), // Success green
-          tertiary: const Color(0xFFE65100), // Warning orange
+          seedColor: const Color(0xFF1565C0),
+          brightness: Brightness.light,
+          background: Colors.white,
+          surface: Colors.white,
+          primary: const Color(0xFF1565C0),
+          secondary: const Color(0xFF2E7D32),
+          tertiary: const Color(0xFFE65100),
         );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: Brightness.light,
+      scaffoldBackgroundColor: scheme.surface,
 
       // Text Theme
       textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
@@ -25,6 +30,7 @@ class AppTheme {
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: scheme.surfaceTint,
+        iconTheme: IconThemeData(color: scheme.onSurface),
       ),
 
       // Card Theme
@@ -34,18 +40,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
         ),
         clipBehavior: Clip.antiAlias,
+        color: scheme.surface,
       ),
-
-      // Floating Action Button Theme
-      // floatingActionButtonTheme:
-      //     FloatingActionButtonTheme.of(ThemeData.light()).copyWith(
-      //   backgroundColor: scheme.primary,
-      //   foregroundColor: scheme.onPrimary,
-      //   elevation: 4,
-      //   shape: RoundedRectangleBorder(
-      //     borderRadius: BorderRadius.circular(16),
-      //   ),
-      // ),
 
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
@@ -71,6 +67,15 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
+        ),
+      ),
+
+      // Dialog Theme
+      dialogTheme: DialogTheme(
+        backgroundColor: scheme.surface,
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
         ),
       ),
 
@@ -101,7 +106,6 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           foregroundColor: scheme.primary,
-          backgroundColor: Colors.transparent,
         ),
       ),
 
@@ -114,33 +118,41 @@ class AppTheme {
           horizontal: 16,
           vertical: 8,
         ),
+        tileColor: scheme.surface,
+        iconColor: scheme.primary,
+        textColor: scheme.onSurface,
       ),
 
       // Snack Bar Theme
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+        backgroundColor: scheme.primary,
+        contentTextStyle: GoogleFonts.poppins(
+          color: scheme.onPrimary,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        contentTextStyle: GoogleFonts.poppins(
-          color: scheme.onInverseSurface,
-        ),
-      ),
-
-      // Dialog Theme
-      dialogTheme: DialogTheme(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        elevation: 8,
       ),
 
       // Bottom Sheet Theme
-      bottomSheetTheme: const BottomSheetThemeData(
-        shape: RoundedRectangleBorder(
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        modalBackgroundColor: scheme.surface,
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(24),
           ),
+        ),
+      ),
+
+      // Floating Action Button Theme
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primaryContainer,
+        foregroundColor: scheme.onPrimaryContainer,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );

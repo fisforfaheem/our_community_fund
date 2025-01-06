@@ -7,6 +7,7 @@ import 'package:our_community_fund/screens/user/notifications_screen.dart';
 import 'package:our_community_fund/screens/user/profile_edit_screen.dart';
 import 'package:our_community_fund/widgets/common/gradient_background.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class UserHomeScreen extends StatefulWidget {
   const UserHomeScreen({super.key});
@@ -18,6 +19,7 @@ class UserHomeScreen extends StatefulWidget {
 class _UserHomeScreenState extends State<UserHomeScreen> {
   final _authService = AuthService();
   final _paymentService = PaymentService();
+  final _firestore = FirebaseFirestore.instance;
   late UserModel _currentUser;
   bool _isLoading = true;
 
@@ -189,16 +191,136 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
+  Widget _buildNotifyPaymentButton() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () => _showPaymentNotificationDialog(),
+        icon: const Icon(Icons.notifications_active),
+        label: const Text('Notify Admin About Payment'),
+      ),
+    );
+  }
+
+  void _showPaymentNotificationDialog() {
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notify Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              decoration: const InputDecoration(
+                labelText: 'Amount Paid',
+                prefixText: '\$',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(
+                labelText: 'Payment Details (Optional)',
+                border: OutlineInputBorder(),
+                hintText: 'e.g., Payment method, reference number',
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (amountController.text.isNotEmpty) {
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    final userDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .get();
+                    final userData = userDoc.data() as Map<String, dynamic>;
+
+                    await FirebaseFirestore.instance
+                        .collection('payment_requests')
+                        .add({
+                      'userId': user.uid,
+                      'userName': userData['name'],
+                      'amount': double.parse(amountController.text),
+                      'note': noteController.text,
+                      'status': 'pending',
+                      'timestamp': FieldValue.serverTimestamp(),
+                    });
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Payment notification sent to admin'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Send Notification'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       );
     }
 
+    final theme = Theme.of(context);
     return Scaffold(
-      body: GradientBackground(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.primary.withOpacity(0.1),
+              theme.colorScheme.surface,
+            ],
+          ),
+        ),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -211,9 +333,11 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 const SizedBox(height: 24),
                 _buildPaymentStatus(),
                 const SizedBox(height: 24),
-                _buildPaymentStats(),
+                _buildNotifyPaymentButton(),
                 const SizedBox(height: 24),
-                _buildRecentPayments(),
+                _buildContributionStats(),
+                const SizedBox(height: 24),
+                _buildContributionHistory(),
               ],
             ),
           ),
@@ -223,13 +347,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Widget _buildAppBar() {
+    final theme = Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           'Community Fund',
           style: TextStyle(
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
             fontSize: 28,
             fontWeight: FontWeight.w500,
           ),
@@ -237,15 +362,20 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined,
-                  color: Colors.white70),
+              icon: Icon(
+                Icons.notifications_outlined,
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white70),
+              icon: Icon(
+                Icons.logout,
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
               onPressed: _showLogoutDialog,
             ),
           ],
@@ -255,150 +385,298 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Widget _buildWelcomeCard() {
-    return ModernCard(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(Icons.person, color: Colors.white, size: 32),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  _currentUser.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.white70),
         ],
+      ),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+        ),
+        borderRadius: BorderRadius.circular(24),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.person,
+                color: theme.colorScheme.primary,
+                size: 32,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back,',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    _currentUser.name,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildPaymentStatus() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _paymentService.getUserPaymentStatus(_currentUser.id),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        StreamBuilder<DocumentSnapshot>(
+          stream: _paymentService.getUserPaymentStatus(_currentUser.id),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return Center(
+                child: CircularProgressIndicator(
+                  color: theme.colorScheme.primary,
+                ),
+              );
+            }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final hasPaidThisMonth = data?['lastPayment'] != null &&
-            (data!['lastPayment'] as Timestamp).toDate().month ==
-                DateTime.now().month;
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            final lastPayment = data?['lastPayment'] as Timestamp?;
 
-        return ModernCard(
-          color: hasPaidThisMonth
-              ? Colors.green.withOpacity(0.2)
-              : Colors.orange.withOpacity(0.2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: hasPaidThisMonth
-                          ? Colors.green.withOpacity(0.2)
-                          : Colors.orange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      hasPaidThisMonth ? Icons.check_circle : Icons.warning,
-                      color: hasPaidThisMonth ? Colors.green : Colors.orange,
-                    ),
+            // Check if there's a payment for the current month
+            final now = DateTime.now();
+            final hasPaidThisMonth = lastPayment != null &&
+                lastPayment.toDate().year == now.year &&
+                lastPayment.toDate().month == now.month;
+
+            return Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withOpacity(0.1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.shadow.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: hasPaidThisMonth
+                              ? theme.colorScheme.primary.withOpacity(0.1)
+                              : theme.colorScheme.error.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          hasPaidThisMonth
+                              ? Icons.check_circle
+                              : Icons.schedule,
+                          color: hasPaidThisMonth
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hasPaidThisMonth
+                                  ? 'Monthly Contribution Complete'
+                                  : 'Monthly Contribution Due',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              hasPaidThisMonth
+                                  ? 'Thank you for your contribution'
+                                  : 'Your monthly contribution is pending',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      if (!hasPaidThisMonth)
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              // TODO: Implement payment flow
+                            },
+                            icon: const Icon(Icons.payment),
+                            label: const Text('Make Contribution'),
+                          ),
+                        ),
+                      if (!hasPaidThisMonth) const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _showExtraContributionDialog,
+                          icon: const Icon(Icons.add_circle_outline),
+                          label: const Text('Additional Contribution'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('payment_requests')
+              .where('userId', isEqualTo: _currentUser.id)
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            final request =
+                snapshot.data!.docs.first.data() as Map<String, dynamic>;
+            final status = request['status'] as String;
+            final timestamp = (request['timestamp'] as Timestamp).toDate();
+
+            Color statusColor;
+            IconData statusIcon;
+            String statusText;
+
+            switch (status) {
+              case 'pending':
+                statusColor = Colors.orange;
+                statusIcon = Icons.pending;
+                statusText = 'Payment notification pending verification';
+                break;
+              case 'verified':
+                statusColor = Colors.green;
+                statusIcon = Icons.check_circle;
+                statusText = 'Payment verified by admin';
+                break;
+              case 'rejected':
+                statusColor = Colors.red;
+                statusIcon = Icons.cancel;
+                statusText = 'Payment notification rejected';
+                break;
+              default:
+                return const SizedBox.shrink();
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: statusColor.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(statusIcon, color: statusColor),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          hasPaidThisMonth ? 'Payment Complete' : 'Payment Due',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          statusText,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         Text(
-                          hasPaidThisMonth
-                              ? 'Thank you for your payment'
-                              : 'Please make your monthly payment',
+                          'Notified on ${DateFormat.yMMMd().add_jm().format(timestamp)}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 14,
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  if (status == 'rejected')
+                    TextButton(
+                      onPressed: _showPaymentNotificationDialog,
+                      child: const Text('Try Again'),
+                    ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (!hasPaidThisMonth)
-                    Expanded(
-                      child: ModernButton(
-                        label: 'Make Payment',
-                        onPressed: () {
-                          // TODO: Implement payment flow
-                        },
-                        icon: Icons.payment,
-                      ),
-                    ),
-                  if (!hasPaidThisMonth) const SizedBox(width: 12),
-                  Expanded(
-                    child: ModernButton(
-                      label: 'Extra Contribution',
-                      onPressed: _showExtraContributionDialog,
-                      icon: Icons.add_circle_outline,
-                      isOutlined: true,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildPaymentStats() {
+  Widget _buildContributionStats() {
+    final theme = Theme.of(context);
     return StreamBuilder<Map<String, dynamic>>(
       stream: _paymentService.getMonthlyStatsStream(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: theme.colorScheme.primary,
+            ),
+          );
         }
 
         final stats = snapshot.data!;
@@ -408,22 +686,37 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         return Row(
           children: [
             Expanded(
-              child: ModernCard(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.shadow.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total Contributed',
+                      'Total Community Contributions',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '\$${totalContributed.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -434,22 +727,37 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: ModernCard(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.shadow.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Collection Rate',
+                      'Community Participation',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${collectionRate.toStringAsFixed(1)}%',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -464,43 +772,85 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     );
   }
 
-  Widget _buildRecentPayments() {
+  Widget _buildContributionHistory() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4.0, bottom: 16.0),
-          child: Text(
-            'Recent Payments',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Your Contribution History',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  // TODO: Implement detailed history view
+                },
+                icon: Icon(
+                  Icons.history,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                label: Text(
+                  'View All',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         StreamBuilder<QuerySnapshot>(
           stream: _paymentService.getUserPaymentsStream(_currentUser.id),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  color: theme.colorScheme.primary,
+                ),
+              );
             }
 
             if (snapshot.data!.docs.isEmpty) {
-              return ModernCard(
+              return Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.1),
+                  ),
+                ),
                 child: Column(
                   children: [
                     Icon(
                       Icons.receipt_long,
                       size: 48,
-                      color: Colors.white.withOpacity(0.3),
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No payment history yet',
+                      'No contributions yet',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your contribution history will appear here',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -508,70 +858,211 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               );
             }
 
-            return Column(
-              children: snapshot.data!.docs.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final date = (data['date'] as Timestamp).toDate();
-                final amount = data['amount'] as num;
+            // Group contributions by month
+            final contributions = snapshot.data!.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return {
+                'date': (data['date'] as Timestamp).toDate(),
+                'amount': data['amount'] as num,
+                'isExtra': data['isExtra'] ?? false,
+                'note': data['note'] as String?,
+              };
+            }).toList();
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ModernCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Payment Received',
+            contributions.sort((a, b) =>
+                (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+
+            // Group by month
+            final groupedContributions = <String, List<Map<String, dynamic>>>{};
+            for (var contribution in contributions) {
+              final date = contribution['date'] as DateTime;
+              final monthKey = DateFormat('MMMM yyyy').format(date);
+              groupedContributions.putIfAbsent(monthKey, () => []);
+              groupedContributions[monthKey]!.add(contribution);
+            }
+
+            return Column(
+              children: groupedContributions.entries.map((entry) {
+                final monthTotal = entry.value.fold<double>(
+                  0,
+                  (sum, item) => sum + (item['amount'] as num).toDouble(),
+                );
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withOpacity(0.1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.shadow.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.key,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${entry.value.length} contribution${entry.value.length > 1 ? 's' : ''}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.7),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '\$${monthTotal.toStringAsFixed(2)}',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
                                 ),
                               ),
-                              Text(
-                                DateFormat.yMMMd().add_jm().format(date),
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '\$${amount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                      ),
+                      const Divider(),
+                      ...entry.value.map((contribution) {
+                        final date = contribution['date'] as DateTime;
+                        final amount = contribution['amount'] as num;
+                        final isExtra = contribution['isExtra'] as bool;
+                        final note = contribution['note'] as String?;
+
+                        return InkWell(
+                          onTap: () {
+                            // TODO: Show contribution details
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isExtra
+                                        ? theme.colorScheme.tertiary
+                                            .withOpacity(0.1)
+                                        : theme.colorScheme.primary
+                                            .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    isExtra ? Icons.star : Icons.check_circle,
+                                    color: isExtra
+                                        ? theme.colorScheme.tertiary
+                                        : theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isExtra
+                                            ? 'Additional Contribution'
+                                            : 'Monthly Contribution',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today,
+                                            size: 12,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.7),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormat('MMM d, h:mm a')
+                                                .format(date),
+                                            style: TextStyle(
+                                              color: theme.colorScheme.onSurface
+                                                  .withOpacity(0.7),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (note != null && note.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          note,
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.5),
+                                            fontSize: 12,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '\$${amount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        );
+                      }),
+                    ],
                   ),
                 );
               }).toList(),

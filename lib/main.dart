@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:our_community_fund/screens/auth/login_screen.dart';
 import 'package:our_community_fund/screens/auth/register_screen.dart';
 import 'package:our_community_fund/screens/auth/forgot_password_screen.dart';
@@ -11,6 +12,7 @@ import 'package:our_community_fund/screens/user/user_home_screen.dart';
 import 'package:our_community_fund/services/auth_service.dart';
 import 'package:our_community_fund/theme/app_theme.dart';
 import 'package:our_community_fund/widgets/connectivity_wrapper.dart';
+import 'package:our_community_fund/providers/theme_provider.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -18,11 +20,14 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MainApp());
+  final prefs = await SharedPreferences.getInstance();
+  runApp(MainApp(prefs: prefs));
 }
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  final SharedPreferences prefs;
+
+  const MainApp({super.key, required this.prefs});
 
   @override
   Widget build(BuildContext context) {
@@ -35,19 +40,32 @@ class MainApp extends StatelessWidget {
           create: (context) => context.read<AuthService>().authStateChanges,
           initialData: null,
         ),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(prefs),
+        ),
       ],
-      child: ConnectivityWrapper(
-        child: MaterialApp(
-          title: 'Our Community Fund',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme(null),
-          darkTheme: AppTheme.darkTheme(null),
-          themeMode: ThemeMode.system,
-          home: const AuthWrapper(),
-          routes: {
-            '/register': (context) => const RegisterScreen(),
-            '/forgot-password': (context) => const ForgotPasswordScreen(),
-          },
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => ConnectivityWrapper(
+          child: MaterialApp(
+            title: 'Our Community Fund',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme(null),
+            darkTheme: AppTheme.darkTheme(null),
+            themeMode: themeProvider.themeMode,
+            builder: (context, child) {
+              return Theme(
+                data: themeProvider.themeMode == ThemeMode.dark
+                    ? AppTheme.darkTheme(null)
+                    : AppTheme.lightTheme(null),
+                child: child!,
+              );
+            },
+            home: const AuthWrapper(),
+            routes: {
+              '/register': (context) => const RegisterScreen(),
+              '/forgot-password': (context) => const ForgotPasswordScreen(),
+            },
+          ),
         ),
       ),
     );
