@@ -14,6 +14,9 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:animations/animations.dart';
 import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/providers/theme_provider.dart';
+import 'package:our_community_fund/screens/admin/payment_requests_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -31,7 +34,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   bool _isInitialized = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  String _selectedTheme = 'System Default';
+  late String _selectedTheme;
 
   @override
   void initState() {
@@ -45,6 +48,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      _selectedTheme = themeProvider.currentThemeName;
+    });
   }
 
   @override
@@ -78,56 +85,178 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1B1E27),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         extendBodyBehindAppBar: true,
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
           automaticallyImplyLeading: false,
-          title: const Text(
+          title: Text(
             'Community Fund',
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 28,
               fontWeight: FontWeight.w500,
             ),
           ),
           actions: [
+            StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('payment_requests')
+                  .where('status', isEqualTo: 'pending')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final pendingCount =
+                    snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+                return Badge(
+                  isLabelVisible: pendingCount > 0,
+                  label: Text('$pendingCount'),
+                  child: IconButton(
+                    icon: const Icon(Icons.payment),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PaymentRequestsScreen()),
+                    ),
+                  ),
+                );
+              },
+            ),
             IconButton(
-              icon: const Icon(Icons.help_outline, color: Colors.white70),
+              icon: Icon(Icons.help_outline,
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const GuideScreen()),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white70),
+              icon: Icon(Icons.settings,
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
               onPressed: () => _showSettingsMenu(),
             ),
             IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white70),
+              icon: Icon(Icons.logout,
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
               onPressed: () => _showLogoutDialog(),
             ),
           ],
         ),
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF2B2D5D), // Deep blue
-                Color(0xFF1B1E27), // Dark background
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                Theme.of(context).colorScheme.surface,
               ],
             ),
           ),
           child: SingleChildScrollView(
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(
+                  left: 16.0,
+                  right: 16.0,
+                  top: 16.0,
+                  bottom: 80.0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    StreamBuilder<QuerySnapshot>(
+                      stream: _firestore
+                          .collection('payment_requests')
+                          .where('status', isEqualTo: 'pending')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        final pendingCount =
+                            snapshot.hasData ? snapshot.data!.docs.length : 0;
+                        if (pendingCount == 0) return const SizedBox.shrink();
+
+                        return GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const PaymentRequestsScreen()),
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .error
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .error
+                                    .withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .error
+                                        .withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.notifications_active,
+                                    color: Theme.of(context).colorScheme.error,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'New Payment Requests',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .error,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'You have $pendingCount pending payment ${pendingCount == 1 ? 'request' : 'requests'} to review',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withOpacity(0.7),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 8),
                     _buildQuickStats(),
                     const SizedBox(height: 24),
@@ -169,12 +298,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             context,
             MaterialPageRoute(builder: (_) => const RecordPaymentScreen()),
           ),
-          backgroundColor: Colors.white.withOpacity(0.2),
-          label: const Row(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          label: Row(
             children: [
-              Icon(Icons.add, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Record Payment', style: TextStyle(color: Colors.white)),
+              Icon(Icons.add,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Text(
+                'Record Payment',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer),
+              ),
             ],
           ),
         ),
@@ -183,19 +317,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildQuickStats() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4.0, bottom: 16.0),
+        Padding(
+          padding: const EdgeInsets.only(left: 4.0, bottom: 16.0),
           child: Row(
             children: [
-              Icon(Icons.access_time, color: Colors.white70, size: 20),
-              SizedBox(width: 8),
+              Icon(Icons.access_time,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  size: 20),
+              const SizedBox(width: 8),
               Text(
                 'Monthly Overview',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -207,14 +344,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.black26,
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: theme.colorScheme.outline.withOpacity(0.1),
+            ),
           ),
           child: StreamBuilder<Map<String, dynamic>>(
             stream: _paymentService.getMonthlyStatsStream(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
+                );
               }
 
               final stats = snapshot.data!;
@@ -227,7 +371,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       '\$${(stats['monthlyTotal'] as num).toStringAsFixed(2)}',
                       Icons.account_balance_wallet,
                       '${(stats['collectionRate'] as num).toStringAsFixed(0)}%',
-                      Colors.green,
+                      theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 16),
                     _buildModernStatCard(
@@ -235,7 +379,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       '${stats['paidCount']} / ${stats['totalUsers']}',
                       Icons.people,
                       '${(stats['paidCount'] / stats['totalUsers'] * 100).toStringAsFixed(0)}%',
-                      Colors.blue,
+                      theme.colorScheme.secondary,
                     ),
                     const SizedBox(width: 16),
                     _buildModernStatCard(
@@ -243,7 +387,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       '\$${(stats['outstanding'] as num).toStringAsFixed(2)}',
                       Icons.warning,
                       '${(100 - (stats['collectionRate'] as num)).toStringAsFixed(0)}%',
-                      Colors.orange,
+                      theme.colorScheme.tertiary,
                     ),
                   ],
                 ),
@@ -262,14 +406,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     String percentage,
     Color accentColor,
   ) {
+    final theme = Theme.of(context);
     return Container(
       width: 180,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: theme.colorScheme.outline.withOpacity(0.1),
           width: 1,
         ),
       ),
@@ -281,7 +426,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.2),
+                  color: accentColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -297,7 +442,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -314,16 +459,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.bold,
               height: 1.2,
@@ -335,10 +480,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildRecentActivity() {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF232731),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,10 +497,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Recent Activity',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -361,11 +510,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     context,
                     MaterialPageRoute(builder: (_) => const ReportsScreen()),
                   ),
-                  icon: const Icon(Icons.analytics, size: 20),
-                  label: const Text('View All'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                  ),
+                  icon: Icon(Icons.analytics,
+                      size: 20, color: theme.colorScheme.primary),
+                  label: Text('View All',
+                      style: TextStyle(color: theme.colorScheme.primary)),
                 ),
               ],
             ),
@@ -492,19 +640,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildQuickActions() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF232731),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quick Actions',
             style: TextStyle(
-              color: Colors.white,
+              color: theme.colorScheme.onSurface,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -535,6 +687,56 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   MaterialPageRoute(builder: (_) => const ReportsScreen()),
                 ),
               ),
+              StreamBuilder<QuerySnapshot>(
+                stream: _firestore
+                    .collection('payment_requests')
+                    .where('status', isEqualTo: 'pending')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final pendingCount =
+                      snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+                  return Stack(
+                    children: [
+                      _buildModernActionButton(
+                        'Payment Requests',
+                        Icons.notifications_active,
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PaymentRequestsScreen()),
+                        ),
+                      ),
+                      if (pendingCount > 0)
+                        Positioned(
+                          right: 16,
+                          top: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.error,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 20,
+                              minHeight: 20,
+                            ),
+                            child: Text(
+                              '$pendingCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
               _buildModernActionButton(
                 'Notify',
                 Icons.notifications,
@@ -554,8 +756,90 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
   Widget _buildModernActionButton(
       String label, IconData icon, VoidCallback onPressed) {
+    final theme = Theme.of(context);
+    if (label == 'Payment Requests') {
+      return StreamBuilder<QuerySnapshot>(
+        stream: _firestore
+            .collection('payment_requests')
+            .where('status', isEqualTo: 'pending')
+            .snapshots(),
+        builder: (context, snapshot) {
+          final pendingCount =
+              snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+          return Material(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withOpacity(0.1),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          icon,
+                          color: theme.colorScheme.primary,
+                          size: 28,
+                        ),
+                        if (pendingCount > 0)
+                          Positioned(
+                            right: -8,
+                            top: -8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.error,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '$pendingCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     return Material(
-      color: const Color(0xFF2A2F3B),
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onPressed,
@@ -564,7 +848,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(
-              color: Colors.white.withOpacity(0.1),
+              color: theme.colorScheme.outline.withOpacity(0.1),
               width: 1,
             ),
             borderRadius: BorderRadius.circular(20),
@@ -574,14 +858,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             children: [
               Icon(
                 icon,
-                color: Colors.white,
+                color: theme.colorScheme.primary,
                 size: 28,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1086,15 +1370,31 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showLogoutDialog() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(
+          'Confirm Logout',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(color: theme.colorScheme.onSurface),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
           ),
           FilledButton(
             onPressed: () {
@@ -1109,20 +1409,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showPaymentDetails(Map<String, dynamic> payment) {
+    final theme = Theme.of(context);
     final date = (payment['date'] as Timestamp).toDate();
     final dateStr = DateFormat.yMMMd().add_jm().format(date);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Text(
+        title: Text(
           'Payment Details',
           style: TextStyle(
-            color: Colors.white,
+            color: theme.colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -1147,9 +1448,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Close',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
           ),
         ],
@@ -1158,6 +1461,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildDetailRow(String label, String value) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -1167,8 +1471,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -1176,8 +1480,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -1189,9 +1493,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showSettingsMenu() {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF232731),
+      backgroundColor: theme.colorScheme.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1211,16 +1516,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 height: 4,
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: theme.colorScheme.onSurface.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.all(16.0),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Settings',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1283,71 +1588,82 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildSettingsItem(String title, IconData icon, VoidCallback onTap) {
+    final theme = Theme.of(context);
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: theme.colorScheme.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: Colors.white70, size: 24),
+        child: Icon(
+          icon,
+          color: theme.colorScheme.primary,
+          size: 24,
+        ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white70),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: theme.colorScheme.onSurface.withOpacity(0.7),
+      ),
       onTap: onTap,
     );
   }
 
   void _showThemeSelector() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    setState(() {
+      _selectedTheme = themeProvider.currentThemeName;
+    });
+
     final List<Map<String, dynamic>> themes = [
       {
         'title': 'System Default',
         'icon': Icons.brightness_auto,
         'description': 'Follow system theme settings',
-        'color': Colors.blue,
+        'color': Theme.of(context).colorScheme.primary,
       },
       {
         'title': 'Light Theme',
         'icon': Icons.light_mode,
         'description': 'Clean, bright interface',
-        'color': Colors.orange,
+        'color': Theme.of(context).colorScheme.primary,
       },
       {
         'title': 'Dark Theme',
         'icon': Icons.dark_mode,
         'description': 'Easy on the eyes',
-        'color': Colors.purple,
-      },
-      {
-        'title': 'High Contrast',
-        'icon': Icons.contrast,
-        'description': 'Maximum readability',
-        'color': Colors.green,
+        'color': Theme.of(context).colorScheme.primary,
       },
     ];
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Choose Theme',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Select your preferred app theme',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
             ),
             const SizedBox(height: 16),
             ...themes.map((theme) => _buildThemeOption(
@@ -1361,24 +1677,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
             ),
           ),
           FilledButton(
-            onPressed: () {
-              // Save theme preference and update UI
-              setState(() {
-                // Theme will be applied here
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Theme updated successfully'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+            onPressed: () async {
+              await themeProvider.setTheme(_selectedTheme);
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Theme updated successfully',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary),
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                );
+              }
             },
             child: const Text('Apply'),
           ),
@@ -1393,7 +1715,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     String description,
     Color accentColor,
   ) {
-    final isSelected = _selectedTheme == title;
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1410,8 +1732,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               border: Border.all(
-                color: isSelected ? accentColor : Colors.white.withOpacity(0.1),
-                width: isSelected ? 2 : 1,
+                color: _selectedTheme == title
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline.withOpacity(0.1),
+                width: _selectedTheme == title ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1420,10 +1744,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.2),
+                    color: theme.colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: accentColor),
+                  child: Icon(icon, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1432,15 +1756,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       Text(
                         description,
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                           fontSize: 12,
                         ),
                       ),
@@ -1455,7 +1779,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       _selectedTheme = value!;
                     });
                   },
-                  activeColor: accentColor,
+                  activeColor: theme.colorScheme.primary,
                 ),
               ],
             ),
@@ -1466,14 +1790,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showNotificationSettings() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Notification Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1506,15 +1834,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text(
+              title: Text(
                 'Reminder Schedule',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: theme.colorScheme.onSurface),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Set when to send payment reminders',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white70),
+              trailing: Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showReminderSchedule();
@@ -1525,9 +1858,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Close',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
           ),
         ],
@@ -1541,18 +1876,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     bool initialValue,
     ValueChanged<bool> onChanged,
   ) {
+    final theme = Theme.of(context);
     return SwitchListTile(
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: theme.colorScheme.onSurface),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withOpacity(0.7),
+          fontSize: 12,
+        ),
       ),
       value: initialValue,
       onChanged: onChanged,
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeColor: theme.colorScheme.primary,
     );
   }
 
@@ -1806,10 +2145,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-          borderRadius: BorderRadius.circular(12),
         ),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
       ),
     );
   }
