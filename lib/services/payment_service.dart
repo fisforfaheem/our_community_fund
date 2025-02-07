@@ -13,9 +13,23 @@ class PaymentService {
   DateTime? _lastStatsUpdate;
   final Duration _cacheDuration = const Duration(minutes: 5);
 
-  Future<void> initialize() async {
-    _notificationService = await NotificationService.init();
-    await _notificationService?.initialize();
+  PaymentService() {
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    if (_notificationService == null) {
+      _notificationService = await NotificationService.init();
+      await _notificationService?.initialize();
+    }
+  }
+
+  // Ensure notification service is initialized before using it
+  Future<NotificationService> get notificationService async {
+    if (_notificationService == null) {
+      await _initializeServices();
+    }
+    return _notificationService!;
   }
 
   Future<void> recordPayment(PaymentModel payment) async {
@@ -39,7 +53,8 @@ class PaymentService {
     if (userDoc.exists) {
       final user = UserModel.fromFirestore(userDoc);
       // Send payment confirmation notification
-      await _notificationService?.sendPaymentConfirmation(user, payment.amount);
+      final notificationService = await this.notificationService;
+      await notificationService.sendPaymentConfirmation(user, payment.amount);
 
       // Add notification to Firestore
       await _firestore.collection('notifications').add({
@@ -93,8 +108,8 @@ class PaymentService {
     if (userDoc.exists) {
       final user = UserModel.fromFirestore(userDoc);
       // Send contribution confirmation notification
-      await _notificationService?.sendExtraContributionConfirmation(
-          user, amount);
+      final notificationService = await this.notificationService;
+      await notificationService.sendExtraContributionConfirmation(user, amount);
 
       // Add notification to Firestore
       await _firestore.collection('notifications').add({
@@ -204,7 +219,7 @@ class PaymentService {
   // Check for users with overdue payments
   Future<void> checkAndNotifyOverduePayments() async {
     if (_notificationService == null) {
-      await initialize();
+      await _initializeServices();
     }
 
     final now = DateTime.now();

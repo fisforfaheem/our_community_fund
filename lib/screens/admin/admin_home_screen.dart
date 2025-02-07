@@ -17,6 +17,8 @@ import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:our_community_fund/providers/theme_provider.dart';
 import 'package:our_community_fund/screens/admin/payment_requests_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -738,9 +740,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 },
               ),
               _buildModernActionButton(
-                'Notify',
-                Icons.notifications,
-                () => _showSendNotificationDialog(),
+                'Test Notification',
+                Icons.notification_important,
+                () => _testNotification(),
               ),
               _buildModernActionButton(
                 'Export',
@@ -752,6 +754,39 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _testNotification() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        if (kDebugMode) {
+          print('Testing notification for user: ${currentUser.uid}');
+        }
+        await _notificationService.sendTestNotification(currentUser.uid);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Test notification sent'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending test notification: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending notification: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildModernActionButton(

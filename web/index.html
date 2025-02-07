@@ -32,10 +32,21 @@
 
   <title>Our Community Fund</title>
   <link rel="manifest" href="manifest.json">
+
+  <script src="flutter.js" defer></script>
 </head>
 
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('load', async function () {
+      try {
+        const appRunner = await import('main.dart.js');
+        await appRunner.main();
+      } catch (error) {
+        console.error('Error loading app:', error);
+      }
+    });
+  </script>
 </body>
 
 </html>

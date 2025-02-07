@@ -11,15 +11,36 @@ import 'package:our_community_fund/screens/admin/admin_home_screen.dart';
 import 'package:our_community_fund/screens/user/user_home_screen.dart';
 import 'package:our_community_fund/services/auth_service.dart';
 import 'package:our_community_fund/theme/app_theme.dart';
+
 import 'package:our_community_fund/widgets/connectivity_wrapper.dart';
 import 'package:our_community_fund/providers/theme_provider.dart';
 import 'firebase_options.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:our_community_fund/services/firebase_messaging_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Set up Firebase Messaging background handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Request notification permissions
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  // Set up foreground notification presentation options (iOS)
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
   final prefs = await SharedPreferences.getInstance();
   runApp(MainApp(prefs: prefs));
 }

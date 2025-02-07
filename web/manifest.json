@@ -3,11 +3,15 @@
     "short_name": "Community Fund",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#1565C0",
-    "theme_color": "#1565C0",
-    "description": "A community fund management app for collecting and tracking contributions.",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A community fund management application",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "permissions": [
+        "notifications"
+    ],
+    "gcm_sender_id": "YOUR_SENDER_ID",
     "icons": [
         {
             "src": "icons/Icon-192.png",

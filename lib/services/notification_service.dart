@@ -3,13 +3,92 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:our_community_fund/models/user_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SharedPreferences _prefs;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
-  NotificationService(this._prefs);
+  NotificationService(this._prefs) {
+    _initializeLocalNotifications();
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (kDebugMode) {
+          print('Notification tapped: ${response.payload}');
+        }
+      },
+    );
+  }
+
+  Future<void> _showLocalNotification(RemoteNotification notification) async {
+    try {
+      if (kDebugMode) {
+        print('Showing local notification:');
+        print('Title: ${notification.title}');
+        print('Body: ${notification.body}');
+      }
+
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+        'community_fund_channel',
+        'Community Fund Notifications',
+        channelDescription: 'Notifications from Community Fund app',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+      );
+
+      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        notificationDetails,
+        payload: 'Default_Sound',
+      );
+
+      if (kDebugMode) {
+        print('Local notification displayed successfully');
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error showing local notification: $e');
+        print('Stack trace: $stackTrace');
+      }
+    }
+  }
 
   static Future<NotificationService> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -18,6 +97,10 @@ class NotificationService {
 
   Future<void> initialize() async {
     try {
+      if (kDebugMode) {
+        print('Initializing NotificationService...');
+      }
+
       // Request permission
       NotificationSettings settings = await _messaging.requestPermission(
         alert: true,
@@ -25,11 +108,23 @@ class NotificationService {
         sound: true,
       );
 
+      if (kDebugMode) {
+        print(
+            'Notification permission status: ${settings.authorizationStatus}');
+      }
+
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         // Get FCM token
         String? token = await _messaging.getToken();
         if (token != null) {
           await _prefs.setString('fcm_token', token);
+          // Update token in Firestore for the current user
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            await _firestore.collection('users').doc(currentUser.uid).update({
+              'fcmToken': token,
+            });
+          }
           if (kDebugMode) {
             print('FCM Token: $token');
           }
@@ -38,6 +133,13 @@ class NotificationService {
         // Handle token refresh
         _messaging.onTokenRefresh.listen((newToken) async {
           await _prefs.setString('fcm_token', newToken);
+          // Update token in Firestore for the current user
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            await _firestore.collection('users').doc(currentUser.uid).update({
+              'fcmToken': newToken,
+            });
+          }
         });
 
         // Handle foreground messages
@@ -47,11 +149,10 @@ class NotificationService {
                 'Received foreground message: ${message.notification?.title}');
           }
           // Handle the message display here
+          if (message.notification != null) {
+            _showLocalNotification(message.notification!);
+          }
         });
-
-        // Handle background messages
-        FirebaseMessaging.onBackgroundMessage(
-            _firebaseMessagingBackgroundHandler);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -67,11 +168,32 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
+      if (kDebugMode) {
+        print('Sending notification to user: $userId');
+        print('Title: $title');
+        print('Body: $body');
+        print('Data: $data');
+      }
+
       final userDoc = await _firestore.collection('users').doc(userId).get();
-      if (!userDoc.exists) throw Exception('User not found');
+      if (!userDoc.exists) {
+        if (kDebugMode) {
+          print('User not found: $userId');
+        }
+        throw Exception('User not found');
+      }
 
       final fcmToken = userDoc.data()?['fcmToken'];
-      if (fcmToken == null) throw Exception('User has no FCM token');
+      if (fcmToken == null) {
+        if (kDebugMode) {
+          print('User has no FCM token: $userId');
+        }
+        throw Exception('User has no FCM token');
+      }
+
+      if (kDebugMode) {
+        print('Found FCM token: $fcmToken');
+      }
 
       await _firestore.collection('notifications').add({
         'userId': userId,
@@ -82,6 +204,10 @@ class NotificationService {
         'read': false,
       });
 
+      if (kDebugMode) {
+        print('Notification stored in Firestore');
+      }
+
       // Send to Firebase Cloud Messaging
       await _firestore.collection('fcm').add({
         'token': fcmToken,
@@ -90,7 +216,15 @@ class NotificationService {
         'data': data,
         'timestamp': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
+
+      if (kDebugMode) {
+        print('FCM message queued for delivery');
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Failed to send notification: $e');
+        print('Stack trace: $stackTrace');
+      }
       throw Exception('Failed to send notification: $e');
     }
   }
@@ -260,12 +394,21 @@ class NotificationService {
         .orderBy('timestamp', descending: true)
         .snapshots();
   }
-}
 
-// This needs to be a top-level function
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kDebugMode) {
-    print('Handling background message: ${message.messageId}');
+  Future<void> sendTestNotification(String userId) async {
+    if (kDebugMode) {
+      print('Sending test notification to user: $userId');
+    }
+
+    await sendNotificationToUser(
+      userId: userId,
+      title: 'Test Notification',
+      body:
+          'This is a test notification to verify the notification system is working.',
+      data: {
+        'type': 'test',
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
   }
-  // Add any background message handling logic here
 }
