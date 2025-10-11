@@ -140,9 +140,22 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {
+          // User document doesn't exist (e.g., after database reset)
+          // Sign them out and return to login
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            await context.read<AuthService>().signOut();
+          });
+
           return const Scaffold(
             body: Center(
-              child: Text('User data not found'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Redirecting to login...'),
+                ],
+              ),
             ),
           );
         }

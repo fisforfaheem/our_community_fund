@@ -16,6 +16,7 @@ import 'package:our_community_fund/providers/theme_provider.dart';
 import 'package:our_community_fund/screens/admin/payment_requests_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -90,7 +91,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             'Community Fund',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 28,
+              fontSize: 20,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -464,7 +465,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             value,
             style: TextStyle(
               color: theme.colorScheme.onSurface,
-              fontSize: 24,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               height: 1.2,
             ),
@@ -497,7 +498,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                     'Recent Activity',
                     style: TextStyle(
                       color: theme.colorScheme.onSurface,
-                      fontSize: 20,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -528,17 +529,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               }
 
               if (snapshot.data!.docs.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
                         Icon(Icons.receipt_long,
-                            color: Colors.white30, size: 48),
-                        SizedBox(height: 16),
+                            color: theme.colorScheme.onSurface.withOpacity(0.3),
+                            size: 48),
+                        const SizedBox(height: 16),
                         Text(
                           'No recent payments',
-                          style: TextStyle(color: Colors.white30),
+                          style: TextStyle(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.3)),
                         ),
                       ],
                     ),
@@ -551,7 +555,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: snapshot.data!.docs.length,
                 separatorBuilder: (_, __) => Divider(
-                  color: Colors.white.withOpacity(0.1),
+                  color: theme.colorScheme.outline.withOpacity(0.2),
                   height: 1,
                 ),
                 itemBuilder: (context, index) {
@@ -564,9 +568,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
+                      horizontal: 16,
+                      vertical: 4,
                     ),
+                    dense: true,
                     leading: Container(
                       width: 48,
                       height: 48,
@@ -587,9 +592,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                         Expanded(
                           child: Text(
                             data['userName'] ?? 'Unknown User',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -655,7 +661,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             'Quick Actions',
             style: TextStyle(
               color: theme.colorScheme.onSurface,
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1107,93 +1113,103 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          backgroundColor: theme.colorScheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.download,
+                    color: theme.colorScheme.onPrimaryContainer),
               ),
-              child: const Icon(Icons.download, color: Colors.white70),
+              const SizedBox(width: 12),
+              Text(
+                'Export Data',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Choose data to export',
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 16),
+              ...exportOptions.map((option) => _buildExportOptionCard(
+                    option['title'] as String,
+                    option['format'] as String,
+                    option['icon'] as IconData,
+                    option['description'] as String,
+                  )),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildExportSettingButton(
+                      'Date Range',
+                      Icons.date_range,
+                      'Last 30 days',
+                      () {
+                        // TODO: Show date range picker
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildExportSettingButton(
+                      'Format',
+                      Icons.file_present,
+                      'CSV',
+                      () {
+                        // TODO: Show format selector
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              ),
             ),
-            const SizedBox(width: 12),
-            const Text(
-              'Export Data',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            FilledButton.icon(
+              onPressed: () {
+                // TODO: Handle data export
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Preparing export...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('Export'),
             ),
           ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Choose data to export',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            ...exportOptions.map((option) => _buildExportOptionCard(
-                  option['title'] as String,
-                  option['format'] as String,
-                  option['icon'] as IconData,
-                  option['description'] as String,
-                )),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildExportSettingButton(
-                    'Date Range',
-                    Icons.date_range,
-                    'Last 30 days',
-                    () {
-                      // TODO: Show date range picker
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildExportSettingButton(
-                    'Format',
-                    Icons.file_present,
-                    'CSV',
-                    () {
-                      // TODO: Show format selector
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              // TODO: Handle data export
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Preparing export...'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            icon: const Icon(Icons.download),
-            label: const Text('Export'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1203,11 +1219,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     IconData icon,
     String description,
   ) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: CheckboxListTile(
@@ -1216,10 +1233,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: Colors.white70, size: 20),
+                child: Icon(icon, color: theme.colorScheme.onSurface, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1228,16 +1245,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w500,
+                        fontSize: 14,
                       ),
                     ),
                     Text(
                       description,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -1249,14 +1267,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: theme.colorScheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   format,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontSize: 11,
                   ),
                 ),
               ),
@@ -1841,59 +1859,70 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           style: TextStyle(
             color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildNotificationOption(
-              'Payment Reminders',
-              'Send reminders to members for pending payments',
-              true,
-              (value) {
-                // TODO: Save to preferences
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildNotificationOption(
-              'Payment Confirmations',
-              'Send confirmation when payment is recorded',
-              true,
-              (value) {
-                // TODO: Save to preferences
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildNotificationOption(
-              'Monthly Reports',
-              'Send monthly collection reports',
-              false,
-              (value) {
-                // TODO: Save to preferences
-              },
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: Text(
-                'Reminder Schedule',
-                style: TextStyle(color: theme.colorScheme.onSurface),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildNotificationOption(
+                'Payment Reminders',
+                'Send reminders to members for pending payments',
+                true,
+                (value) {
+                  // TODO: Save to preferences
+                },
               ),
-              subtitle: Text(
-                'Set when to send payment reminders',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+              const SizedBox(height: 8),
+              _buildNotificationOption(
+                'Payment Confirmations',
+                'Send confirmation when payment is recorded',
+                true,
+                (value) {
+                  // TODO: Save to preferences
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildNotificationOption(
+                'Monthly Reports',
+                'Send monthly collection reports',
+                false,
+                (value) {
+                  // TODO: Save to preferences
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                dense: true,
+                title: Text(
+                  'Reminder Schedule',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
                 ),
+                subtitle: Text(
+                  'Set when to send payment reminders',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  size: 20,
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showReminderSchedule();
+                },
               ),
-              trailing: Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showReminderSchedule();
-              },
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1918,15 +1947,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   ) {
     final theme = Theme.of(context);
     return SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      dense: true,
       title: Text(
         title,
-        style: TextStyle(color: theme.colorScheme.onSurface),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 14,
+        ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(
           color: theme.colorScheme.onSurface.withOpacity(0.7),
-          fontSize: 12,
+          fontSize: 11,
         ),
       ),
       value: initialValue,
@@ -1961,81 +1995,94 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.schedule, color: Colors.white70),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Reminder Schedule',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Choose when to send payment reminders',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            ...reminderOptions.map((option) => _buildReminderOptionCard(
-                  option['title'] as String,
-                  option['subtitle'] as String,
-                  option['icon'] as IconData,
-                )),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text(
-                'Smart Reminders',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Automatically adjust reminder frequency based on payment history',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              value: true,
-              onChanged: (value) {
-                // TODO: Handle smart reminders setting
-              },
-              activeThumbColor: Theme.of(context).colorScheme.primary,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              // TODO: Save reminder schedule
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Reminder schedule updated'),
-                  behavior: SnackBarBehavior.floating,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          backgroundColor: theme.colorScheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-            child: const Text('Save'),
+                child: Icon(Icons.schedule,
+                    color: theme.colorScheme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Reminder Schedule',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Choose when to send payment reminders',
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 16),
+              ...reminderOptions.map((option) => _buildReminderOptionCard(
+                    option['title'] as String,
+                    option['subtitle'] as String,
+                    option['icon'] as IconData,
+                  )),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: Text(
+                  'Smart Reminders',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface, fontSize: 14),
+                ),
+                subtitle: Text(
+                  'Automatically adjust reminder frequency based on payment history',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 11),
+                ),
+                value: true,
+                onChanged: (value) {
+                  // TODO: Handle smart reminders setting
+                },
+                activeThumbColor: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              ),
+            ),
+            FilledButton(
+              onPressed: () {
+                // TODO: Save reminder schedule
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Reminder schedule updated'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2094,14 +2141,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showPaymentRules() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Payment Rules',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2191,14 +2242,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showAdminPreferences() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Admin Preferences',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -2286,14 +2341,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showAdminPermissions() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Admin Permissions',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2326,28 +2385,36 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildPermissionOption(String title, bool initialValue) {
+    final theme = Theme.of(context);
     return CheckboxListTile(
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 14,
+        ),
       ),
       value: initialValue,
       onChanged: (value) {
         // TODO: Handle permission change
       },
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeColor: theme.colorScheme.primary,
     );
   }
 
   void _showDataManagement() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Data Management',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -2394,7 +2461,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 },
                 isDestructive: true,
               ),
-              const Divider(color: Colors.white24, thickness: 1, height: 24),
+              const Divider(color: Colors.white24, thickness: 1, height: 16),
               _buildDataManagementTile(
                 'Reset Database',
                 '⚠️ Delete ALL data and users',
@@ -2428,42 +2495,64 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     VoidCallback onTap, {
     bool isDestructive = false,
   }) {
+    final theme = Theme.of(context);
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      dense: true,
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: (isDestructive ? Colors.red : Colors.white).withOpacity(0.1),
+          color: isDestructive
+              ? theme.colorScheme.errorContainer
+              : theme.colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           icon,
-          color: isDestructive ? Colors.red : Colors.white70,
+          color: isDestructive
+              ? theme.colorScheme.error
+              : theme.colorScheme.onPrimaryContainer,
+          size: 20,
         ),
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: isDestructive ? Colors.red : Colors.white,
+          color: isDestructive
+              ? theme.colorScheme.error
+              : theme.colorScheme.onSurface,
+          fontSize: 14,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: TextStyle(
+          color: theme.colorScheme.onSurface.withOpacity(0.6),
+          fontSize: 11,
+        ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white70),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: theme.colorScheme.onSurface.withOpacity(0.5),
+        size: 18,
+      ),
       onTap: onTap,
     );
   }
 
   void _showBackupSettings() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Backup Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2522,18 +2611,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showClearCacheConfirmation() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Clear Cache',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
-        content: const Text(
+        content: Text(
           'This will clear all temporary data. This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
         ),
         actions: [
           TextButton(
@@ -2562,14 +2655,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showDeleteDataConfirmation() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Delete Data',
-          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
         ),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -2845,7 +2942,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           actions: [
             TextButton(
               onPressed: () {
-                confirmationController.dispose();
                 Navigator.pop(context);
               },
               child: Text(
@@ -2862,7 +2958,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               ),
               onPressed: isButtonEnabled
                   ? () async {
-                      confirmationController.dispose();
                       Navigator.pop(context);
                       await _performDatabaseReset();
                     }
@@ -2873,6 +2968,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         ),
       ),
     );
+    // Note: Controller will be garbage collected automatically when dialog closes
+    // No need to manually dispose it
   }
 
   Future<void> _performDatabaseReset() async {
@@ -3007,7 +3104,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          'The app will log you out now',
+                          'All data cleared. You will be logged out.',
                           style: TextStyle(
                             color: Colors.orange,
                             fontSize: 13,
@@ -3023,8 +3120,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               FilledButton(
                 onPressed: () async {
                   Navigator.pop(context);
-                  // Log out the current user
-                  await context.read<AuthService>().signOut();
+
+                  // Clear all shared preferences
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.clear();
+
+                  // Log out the current user (this will navigate to login screen)
+                  await _authService.signOut();
                 },
                 child: const Text('Okay'),
               ),
@@ -3075,27 +3177,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   void _showAboutDialog() {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF232731),
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.account_balance, color: Colors.white70),
+              child: Icon(Icons.account_balance,
+                  color: theme.colorScheme.onPrimaryContainer),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
                 'About Community Fund',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
             ),
           ],
