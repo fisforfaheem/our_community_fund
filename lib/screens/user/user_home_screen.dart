@@ -192,7 +192,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Widget _buildNotifyPaymentButton() {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: FilledButton.icon(
@@ -211,7 +210,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   void _showPaymentNotificationDialog() {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
-    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -351,12 +349,15 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Community Fund',
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontSize: 28,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            'Community Fund',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         Row(
@@ -782,12 +783,15 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Your Contribution History',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  'Your Contribution History',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton.icon(
@@ -912,27 +916,31 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  entry.key,
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onSurface,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.key,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${entry.value.length} contribution${entry.value.length > 1 ? 's' : ''}',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onSurface
-                                        .withOpacity(0.7),
-                                    fontSize: 14,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${entry.value.length} contribution${entry.value.length > 1 ? 's' : ''}',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.7),
+                                      fontSize: 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(

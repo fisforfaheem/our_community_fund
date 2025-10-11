@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'custom_buttons.dart';
 
 class CustomDialog extends StatelessWidget {
   final String title;

@@ -9,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:ui' as ui;
 import 'package:our_community_fund/models/user_model.dart';
 import 'package:our_community_fund/services/payment_service.dart';
-import 'package:our_community_fund/widgets/common/gradient_background.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   final UserModel user;

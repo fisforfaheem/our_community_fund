@@ -1,22 +1,10 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AnalyticsService {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // Helper method to handle analytics errors
-  Future<void> _logEvent(Future<void> Function() event) async {
-    try {
-      await event();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Analytics error: $e');
-      }
-    }
-  }
 
   // Get payment statistics for a specific time range
   Future<Map<String, dynamic>> getPaymentStats({

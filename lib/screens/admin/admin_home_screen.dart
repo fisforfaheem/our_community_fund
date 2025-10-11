@@ -11,9 +11,6 @@ import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 import 'package:our_community_fund/screens/admin/members_list_screen.dart';
 import 'package:our_community_fund/screens/guide_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:animations/animations.dart';
-import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:our_community_fund/providers/theme_provider.dart';
 import 'package:our_community_fund/screens/admin/payment_requests_screen.dart';
@@ -35,7 +32,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   late final NotificationService _notificationService;
   bool _isInitialized = false;
   late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
   late String _selectedTheme;
 
   @override
@@ -45,9 +41,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -499,12 +492,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recent Activity',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    'Recent Activity',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 TextButton.icon(
@@ -856,12 +852,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
                       ),
                     ),
                   ],
@@ -897,12 +898,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 size: 28,
               ),
               const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
             ],
@@ -944,11 +950,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Recent Members',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                    Flexible(
+                      child: Text(
+                        'Recent Members',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     TextButton(
                       onPressed: () => _showAllMembers(),
@@ -1066,10 +1075,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
       context,
       MaterialPageRoute(builder: (_) => const MembersListScreen()),
     );
-  }
-
-  void _showSendNotificationDialog() {
-    // TODO: Implement send notification dialog
   }
 
   void _showExportDialog() {
@@ -1926,7 +1931,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
       ),
       value: initialValue,
       onChanged: onChanged,
-      activeColor: theme.colorScheme.primary,
+      activeThumbColor: theme.colorScheme.primary,
     );
   }
 
@@ -2004,7 +2009,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               onChanged: (value) {
                 // TODO: Handle smart reminders setting
               },
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
             ),
           ],
         ),
@@ -2138,7 +2143,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               onChanged: (value) {
                 // TODO: Save setting
               },
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
             ),
           ],
         ),
@@ -2195,52 +2200,55 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           'Admin Preferences',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildAdminPreferenceOption(
-              'Require Approval',
-              'Need admin approval for member registrations',
-              true,
-            ),
-            const SizedBox(height: 16),
-            _buildAdminPreferenceOption(
-              'Auto Notifications',
-              'Automatically send notifications for events',
-              true,
-            ),
-            const SizedBox(height: 16),
-            _buildAdminPreferenceOption(
-              'Analytics Tracking',
-              'Track detailed payment analytics',
-              true,
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAdminPreferenceOption(
+                'Require Approval',
+                'Need admin approval for member registrations',
+                true,
+              ),
+              const SizedBox(height: 16),
+              _buildAdminPreferenceOption(
+                'Auto Notifications',
+                'Automatically send notifications for events',
+                true,
+              ),
+              const SizedBox(height: 16),
+              _buildAdminPreferenceOption(
+                'Analytics Tracking',
+                'Track detailed payment analytics',
+                true,
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.admin_panel_settings,
+                      color: Colors.white70),
                 ),
-                child: const Icon(Icons.admin_panel_settings,
-                    color: Colors.white70),
+                title: const Text(
+                  'Admin Permissions',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  'Manage other admin accounts',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                trailing:
+                    const Icon(Icons.chevron_right, color: Colors.white70),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAdminPermissions();
+                },
               ),
-              title: const Text(
-                'Admin Permissions',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Manage other admin accounts',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white70),
-              onTap: () {
-                Navigator.pop(context);
-                _showAdminPermissions();
-              },
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -2273,7 +2281,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
       onChanged: (value) {
         // TODO: Save admin preference
       },
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeThumbColor: Theme.of(context).colorScheme.primary,
     );
   }
 
@@ -2341,51 +2349,64 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           'Data Management',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDataManagementTile(
-              'Export Data',
-              'Download all data as CSV',
-              Icons.download,
-              () {
-                // TODO: Implement data export
-                Navigator.pop(context);
-                _showExportDialog();
-              },
-            ),
-            _buildDataManagementTile(
-              'Backup Settings',
-              'Configure automatic backups',
-              Icons.backup,
-              () {
-                // TODO: Implement backup settings
-                Navigator.pop(context);
-                _showBackupSettings();
-              },
-            ),
-            _buildDataManagementTile(
-              'Clear Cache',
-              'Clear temporary data',
-              Icons.cleaning_services,
-              () {
-                // TODO: Implement cache clearing
-                Navigator.pop(context);
-                _showClearCacheConfirmation();
-              },
-            ),
-            _buildDataManagementTile(
-              'Delete Data',
-              'Permanently delete selected data',
-              Icons.delete_forever,
-              () {
-                // TODO: Implement data deletion
-                Navigator.pop(context);
-                _showDeleteDataConfirmation();
-              },
-              isDestructive: true,
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDataManagementTile(
+                'Export Data',
+                'Download all data as CSV',
+                Icons.download,
+                () {
+                  // TODO: Implement data export
+                  Navigator.pop(context);
+                  _showExportDialog();
+                },
+              ),
+              _buildDataManagementTile(
+                'Backup Settings',
+                'Configure automatic backups',
+                Icons.backup,
+                () {
+                  // TODO: Implement backup settings
+                  Navigator.pop(context);
+                  _showBackupSettings();
+                },
+              ),
+              _buildDataManagementTile(
+                'Clear Cache',
+                'Clear temporary data',
+                Icons.cleaning_services,
+                () {
+                  // TODO: Implement cache clearing
+                  Navigator.pop(context);
+                  _showClearCacheConfirmation();
+                },
+              ),
+              _buildDataManagementTile(
+                'Delete Data',
+                'Permanently delete selected data',
+                Icons.delete_forever,
+                () {
+                  // TODO: Implement data deletion
+                  Navigator.pop(context);
+                  _showDeleteDataConfirmation();
+                },
+                isDestructive: true,
+              ),
+              const Divider(color: Colors.white24, thickness: 1, height: 24),
+              _buildDataManagementTile(
+                'Reset Database',
+                '⚠️ Delete ALL data and users',
+                Icons.warning_amber_rounded,
+                () {
+                  Navigator.pop(context);
+                  _showResetDatabaseConfirmation();
+                },
+                isDestructive: true,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -2460,7 +2481,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               onChanged: (value) {
                 // TODO: Handle auto backup setting
               },
-              activeColor: Theme.of(context).colorScheme.primary,
+              activeThumbColor: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 16),
             ListTile(
@@ -2597,6 +2618,462 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     );
   }
 
+  void _showResetDatabaseConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: Colors.red,
+          size: 64,
+        ),
+        title: Text(
+          '⚠️ DANGER ZONE ⚠️',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are about to RESET THE ENTIRE DATABASE!',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'This will permanently delete:',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildWarningItem('All user accounts'),
+            _buildWarningItem('All payment records'),
+            _buildWarningItem('All payment requests'),
+            _buildWarningItem('All notifications'),
+            _buildWarningItem('All settings and preferences'),
+            _buildWarningItem('Everything from the database'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'THIS ACTION CANNOT BE UNDONE!',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel (Safe Option)',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _showResetDatabaseFinalConfirmation();
+            },
+            child: const Text('I Understand, Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarningItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Row(
+        children: [
+          Icon(Icons.close, color: Colors.red, size: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetDatabaseFinalConfirmation() {
+    final TextEditingController confirmationController =
+        TextEditingController();
+    bool isButtonEnabled = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Final Confirmation',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Type RESET to confirm database deletion:',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmationController,
+                  autofocus: true,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Type RESET here',
+                    hintStyle: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.3),
+                    ),
+                    filled: true,
+                    fillColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withOpacity(0.3),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red, width: 3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      isButtonEnabled = value.trim().toUpperCase() == 'RESET';
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.timer, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'This process may take a few moments',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                confirmationController.dispose();
+                Navigator.pop(context);
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: isButtonEnabled ? Colors.red : Colors.grey,
+              ),
+              onPressed: isButtonEnabled
+                  ? () async {
+                      confirmationController.dispose();
+                      Navigator.pop(context);
+                      await _performDatabaseReset();
+                    }
+                  : null,
+              child: const Text('RESET DATABASE'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performDatabaseReset() async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Resetting database...',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please wait, do not close the app',
+                style: TextStyle(
+                  color:
+                      Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // List of all collections to delete
+      final collections = [
+        'users',
+        'payments',
+        'payment_requests',
+        'notifications',
+        'notification_preferences',
+        'settings',
+        'support_programs',
+        'support_requests',
+        'disbursements',
+      ];
+
+      int totalDeleted = 0;
+
+      // Delete all documents from each collection
+      for (String collectionName in collections) {
+        final QuerySnapshot snapshot =
+            await _firestore.collection(collectionName).get();
+
+        // Delete in batches of 500 (Firestore limit)
+        final batch = _firestore.batch();
+        int count = 0;
+
+        for (var doc in snapshot.docs) {
+          batch.delete(doc.reference);
+          count++;
+          totalDeleted++;
+
+          // Commit batch every 500 documents
+          if (count >= 500) {
+            await batch.commit();
+            count = 0;
+          }
+        }
+
+        // Commit remaining documents
+        if (count > 0) {
+          await batch.commit();
+        }
+      }
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show success dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            icon: Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 64,
+            ),
+            title: Text(
+              'Database Reset Complete',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Successfully deleted $totalDeleted records',
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'The app will log you out now',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  // Log out the current user
+                  await context.read<AuthService>().signOut();
+                },
+                child: const Text('Okay'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Show error dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            icon: Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 64,
+            ),
+            title: Text(
+              'Reset Failed',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: Text(
+              'An error occurred: ${e.toString()}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Okay'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
   void _showAboutDialog() {
     showDialog(
       context: context,
@@ -2614,86 +3091,95 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               child: const Icon(Icons.account_balance, color: Colors.white70),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'About Community Fund',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            const Expanded(
+              child: Text(
+                'About Community Fund',
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildAboutSection(
-              'Version',
-              'v1.0.0 (Build 2024.01)',
-              Icons.info_outline,
-            ),
-            const SizedBox(height: 16),
-            _buildAboutSection(
-              'Developer',
-              'Community Fund Team',
-              Icons.code,
-            ),
-            const SizedBox(height: 16),
-            _buildAboutSection(
-              'Contact',
-              'support@communityfund.com',
-              Icons.email,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Description',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAboutSection(
+                'Version',
+                'v1.0.0 (Build 2024.01)',
+                Icons.info_outline,
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Community Fund is a modern payment management system designed to help communities track and manage their funds efficiently. Built with Flutter and Firebase for reliable performance and real-time updates.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildAboutButton(
-                  'Privacy Policy',
-                  Icons.privacy_tip,
-                  () {
-                    // TODO: Open privacy policy
-                  },
+              const SizedBox(height: 16),
+              _buildAboutSection(
+                'Developer',
+                'Community Fund Team',
+                Icons.code,
+              ),
+              const SizedBox(height: 16),
+              _buildAboutSection(
+                'Contact',
+                'support@communityfund.com',
+                Icons.email,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Description',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
-                _buildAboutButton(
-                  'Terms of Service',
-                  Icons.description,
-                  () {
-                    // TODO: Open terms of service
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: FilledButton.icon(
-                onPressed: () {
-                  // TODO: Check for updates
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Your app is up to date!'),
-                      behavior: SnackBarBehavior.floating,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Community Fund is a modern payment management system designed to help communities track and manage their funds efficiently. Built with Flutter and Firebase for reliable performance and real-time updates.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Flexible(
+                    child: _buildAboutButton(
+                      'Privacy Policy',
+                      Icons.privacy_tip,
+                      () {
+                        // TODO: Open privacy policy
+                      },
                     ),
-                  );
-                },
-                icon: const Icon(Icons.system_update),
-                label: const Text('Check for Updates'),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: _buildAboutButton(
+                      'Terms of Service',
+                      Icons.description,
+                      () {
+                        // TODO: Open terms of service
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Center(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    // TODO: Check for updates
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Your app is up to date!'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.system_update),
+                  label: const Text('Check for Updates'),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -2710,6 +3196,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
   Widget _buildAboutSection(String title, String content, IconData icon) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, color: Colors.white70, size: 20),
         const SizedBox(width: 12),
@@ -2728,6 +3215,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               Text(
                 content,
                 style: const TextStyle(color: Colors.white70, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ],
           ),
@@ -2746,9 +3235,5 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         foregroundColor: Colors.white70,
       ),
     );
-  }
-
-  void _showExportOptions() {
-    _showExportDialog();
   }
 }

@@ -5,7 +5,7 @@ import 'package:our_community_fund/utils/toast_utils.dart';
 
 class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
-  late StreamSubscription<ConnectivityResult> _subscription;
+  late StreamSubscription<List<ConnectivityResult>> _subscription;
   bool _wasConnected = true;
 
   void initialize(BuildContext context) {
@@ -25,15 +25,15 @@ class ConnectivityService {
 
   Future<bool> isConnected() async {
     final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    return !result.contains(ConnectivityResult.none);
   }
 
   void _handleConnectivityChange(
     BuildContext context,
-    ConnectivityResult result, {
+    List<ConnectivityResult> result, {
     bool isInitial = false,
   }) {
-    final isConnected = result != ConnectivityResult.none;
+    final isConnected = !result.contains(ConnectivityResult.none);
 
     // Only show messages for actual changes in connectivity
     if (!isInitial && isConnected != _wasConnected) {

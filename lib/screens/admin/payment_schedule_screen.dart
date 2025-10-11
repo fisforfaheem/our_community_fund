@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/services/notification_service.dart';
-import 'package:our_community_fund/models/user_model.dart';
 import 'package:intl/intl.dart';
 
 class PaymentScheduleScreen extends StatefulWidget {
@@ -100,15 +98,15 @@ class _PaymentScheduleScreenState extends State<PaymentScheduleScreen> {
     setState(() => _isLoading = true);
     try {
       // Get all non-admin users
-      final users = await _firestore
-          .collection('users')
-          .where('isAdmin', isEqualTo: false)
-          .get();
+      // final users = await _firestore
+      //     .collection('users')
+      //     .where('isAdmin', isEqualTo: false)
+      //     .get();
 
-      for (var doc in users.docs) {
-        final user = UserModel.fromFirestore(doc);
-        // await _notificationService.scheduleMonthlyReminder(user);
-      }
+      // for (var doc in users.docs) {
+      //   final user = UserModel.fromFirestore(doc);
+      //   await _notificationService.scheduleMonthlyReminder(user);
+      // }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Test notifications sent to all users')),

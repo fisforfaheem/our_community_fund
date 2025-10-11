@@ -179,9 +179,6 @@ class FloatingActionIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     final button = extended
         ? FloatingActionButton.extended(
             onPressed: onPressed,

@@ -32,6 +32,8 @@ class ThemeProvider with ChangeNotifier {
         _themeMode = ThemeMode.dark;
         break;
       case 'System Default':
+        _themeMode = ThemeMode.system;
+        break;
       default:
         _themeMode = ThemeMode.system;
         break;
@@ -45,7 +47,6 @@ class ThemeProvider with ChangeNotifier {
       case ThemeMode.dark:
         return 'Dark Theme';
       case ThemeMode.system:
-      default:
         return 'System Default';
     }
   }

@@ -1,31 +1,31 @@
 name: our_community_fund
 description: "A community fund management application"
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0
 
 environment:
   sdk: ^3.6.1
 
 dependencies:
-  cloud_firestore: ^5.6.1
-  connectivity_plus: ^5.0.2
+  cloud_firestore: ^6.0.2
+  connectivity_plus: ^6.1.5
   csv: ^6.0.0
-  firebase_analytics: ^11.4.0
-  firebase_auth: ^5.3.4
-  firebase_core: ^3.10.0
-  firebase_messaging: ^15.2.0
-  fl_chart: ^0.70.2
+  firebase_analytics: ^12.0.2
+  firebase_auth: ^6.1.0
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  fl_chart: ^0.71.0
   flutter:
     sdk: flutter
-  google_fonts: ^6.2.1
+  google_fonts: ^6.3.2
   intl: ^0.19.0
-  js: ^0.6.7
-  path_provider: ^2.1.1
-  provider: ^6.1.2
-  shared_preferences: ^2.3.5
-  animations: ^2.0.11
+  js: ^0.7.2
+  path_provider: ^2.1.5
+  provider: ^6.1.5
+  shared_preferences: ^2.5.3
+  animations: ^2.1.0
   share_plus: ^7.2.2
-  flutter_local_notifications: 
+  flutter_local_notifications:
 
 dev_dependencies:
   flutter_lints: ^5.0.0
@@ -34,5 +34,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/
+  # assets:
+  #   - assets/images/

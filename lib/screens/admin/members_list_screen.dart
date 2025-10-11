@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:our_community_fund/models/user_model.dart';
-import 'package:our_community_fund/services/payment_service.dart';
 import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 
 class MembersListScreen extends StatefulWidget {
@@ -14,11 +13,9 @@ class MembersListScreen extends StatefulWidget {
 
 class _MembersListScreenState extends State<MembersListScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final PaymentService _paymentService = PaymentService();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedFilter = 'All';
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -339,8 +336,6 @@ class _MembersListScreenState extends State<MembersListScreen> {
   }
 
   Future<void> _exportMembersList() async {
-    setState(() => _isLoading = true);
-
     try {
       // TODO: Implement export functionality
       ScaffoldMessenger.of(context).showSnackBar(
@@ -356,8 +351,6 @@ class _MembersListScreenState extends State<MembersListScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 }

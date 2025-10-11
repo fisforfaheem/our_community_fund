@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:our_community_fund/models/user_model.dart';
 
 class UserSearchDelegate extends SearchDelegate<UserModel?> {

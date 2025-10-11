@@ -74,11 +74,24 @@ class MainApp extends StatelessWidget {
             darkTheme: AppTheme.darkTheme(null),
             themeMode: themeProvider.themeMode,
             builder: (context, child) {
-              return Theme(
-                data: themeProvider.themeMode == ThemeMode.dark
-                    ? AppTheme.darkTheme(null)
-                    : AppTheme.lightTheme(null),
-                child: child!,
+              // Limit text scaling to prevent UI overflow from accessibility settings
+              final mediaQueryData = MediaQuery.of(context);
+              final constrainedTextScaleFactor =
+                  mediaQueryData.textScaler.clamp(
+                minScaleFactor: 0.8,
+                maxScaleFactor: 1.2,
+              );
+
+              return MediaQuery(
+                data: mediaQueryData.copyWith(
+                  textScaler: constrainedTextScaleFactor,
+                ),
+                child: Theme(
+                  data: themeProvider.themeMode == ThemeMode.dark
+                      ? AppTheme.darkTheme(null)
+                      : AppTheme.lightTheme(null),
+                  child: child!,
+                ),
               );
             },
             home: const AuthWrapper(),
