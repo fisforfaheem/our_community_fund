@@ -1,251 +1,68 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/models/payment_model.dart';
-import 'package:our_community_fund/models/user_model.dart';
-import 'package:our_community_fund/services/notification_service.dart';
+import 'package:our_community_fund/data/datasources/payment_remote_data_source.dart';
+import 'package:our_community_fund/data/models/payment_model.dart';
+import 'package:our_community_fund/data/repositories/payment_repository_impl.dart';
+import 'package:our_community_fund/domain/repositories/payment_repository.dart';
 
+/// Thin facade over [PaymentRepository] for legacy call sites.
 class PaymentService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  NotificationService? _notificationService;
-  static const double EXPECTED_MONTHLY_PAYMENT = 100.0; // Make it configurable
+  final PaymentRepository _repository;
 
-  // Cache for monthly stats
-  Map<String, dynamic>? _cachedStats;
-  DateTime? _lastStatsUpdate;
-  final Duration _cacheDuration = const Duration(minutes: 5);
+  PaymentService({PaymentRepository? repository})
+      : _repository = repository ??
+            PaymentRepositoryImpl(
+              remote: PaymentRemoteDataSourceImpl(),
+            );
 
-  PaymentService() {
-    _initializeServices();
-  }
+  static const double EXPECTED_MONTHLY_PAYMENT =
+      PaymentRepository.expectedMonthlyPayment;
 
-  Future<void> _initializeServices() async {
-    if (_notificationService == null) {
-      _notificationService = await NotificationService.init();
-      await _notificationService?.initialize();
-    }
-  }
-
-  // Ensure notification service is initialized before using it
-  Future<NotificationService> get notificationService async {
-    if (_notificationService == null) {
-      await _initializeServices();
-    }
-    return _notificationService!;
-  }
-
-  Future<void> recordPayment(PaymentModel payment) async {
-    final batch = _firestore.batch();
-
-    // Add payment record
-    final paymentRef = _firestore.collection('payments').doc();
-    batch.set(paymentRef, payment.toMap());
-
-    // Update user's last payment and total contributions
-    final userRef = _firestore.collection('users').doc(payment.userId);
-    batch.update(userRef, {
-      'lastPayment': payment.date,
-      'totalContributions': FieldValue.increment(payment.amount),
-    });
-
-    await batch.commit();
-
-    // Get user data for notification
-    final userDoc = await userRef.get();
-    if (userDoc.exists) {
-      final user = UserModel.fromFirestore(userDoc);
-      // Send payment confirmation notification
-      final notificationService = await this.notificationService;
-      await notificationService.sendPaymentConfirmation(user, payment.amount);
-
-      // Add notification to Firestore
-      await _firestore.collection('notifications').add({
-        'userId': payment.userId,
-        'type': 'payment',
-        'title': 'Payment Received',
-        'body':
-            'Thank you for your payment of \$${payment.amount.toStringAsFixed(2)}',
-        'timestamp': FieldValue.serverTimestamp(),
-        'read': false,
-      });
-    }
-  }
+  Future<void> recordPayment(PaymentModel payment) =>
+      _repository.recordPayment(payment.toEntity());
 
   Future<void> recordExtraContribution(
-      String userId, double amount, String note) async {
-    // Get user data first
-    final userDoc = await _firestore.collection('users').doc(userId).get();
-    if (!userDoc.exists) {
-      throw Exception('User not found');
-    }
-    final userData = userDoc.data() as Map<String, dynamic>;
+    String userId,
+    double amount,
+    String note,
+  ) =>
+      _repository.recordExtraContribution(
+        userId: userId,
+        amount: amount,
+        note: note,
+      );
 
-    final payment = PaymentModel(
-      id: _firestore.collection('payments').doc().id, // Generate new ID
-      userId: userId,
-      userName: userData['name'] as String,
-      amount: amount,
-      date: DateTime.now(),
-      recordedBy: userId, // Self-recorded contribution
-      type: 'extra',
-      note: note,
-    );
+  Future<double> getUserExtraContributions(String userId) =>
+      _repository.getUserExtraContributions(userId);
 
-    final batch = _firestore.batch();
-
-    // Add payment record
-    final paymentRef = _firestore.collection('payments').doc();
-    batch.set(paymentRef, payment.toMap());
-
-    // Update user's total contributions
-    final userRef = _firestore.collection('users').doc(userId);
-    batch.update(userRef, {
-      'totalContributions': FieldValue.increment(amount),
-      'lastExtraContribution': DateTime.now(),
-    });
-
-    await batch.commit();
-
-    // Get user data for notification
-    if (userDoc.exists) {
-      final user = UserModel.fromFirestore(userDoc);
-      // Send contribution confirmation notification
-      final notificationService = await this.notificationService;
-      await notificationService.sendExtraContributionConfirmation(user, amount);
-
-      // Add notification to Firestore
-      await _firestore.collection('notifications').add({
-        'userId': userId,
-        'type': 'extra_contribution',
-        'title': 'Extra Contribution Received',
-        'body':
-            'Thank you for your extra contribution of \$${amount.toStringAsFixed(2)}',
-        'timestamp': FieldValue.serverTimestamp(),
-        'read': false,
-      });
-    }
-  }
-
-  // Get total extra contributions for a user
-  Future<double> getUserExtraContributions(String userId) async {
-    final querySnapshot = await _firestore
-        .collection('payments')
-        .where('userId', isEqualTo: userId)
-        .where('type', isEqualTo: 'extra')
-        .get();
-
-    return querySnapshot.docs.fold<double>(
-      0,
-      (sum, doc) => sum + (doc.data()['amount'] as num).toDouble(),
-    );
-  }
-
-  // Get payments for a specific user
   Stream<List<PaymentModel>> getUserPayments(String userId) {
-    return _firestore
-        .collection('payments')
-        .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PaymentModel.fromFirestore(doc))
-            .toList());
+    return _repository.watchUserPayments(userId).map(
+          (payments) =>
+              payments.map(PaymentModel.fromEntity).toList(),
+        );
   }
 
-  // Get all payments (for admin)
   Stream<List<PaymentModel>> getAllPayments() {
-    return _firestore
-        .collection('payments')
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PaymentModel.fromFirestore(doc))
-            .toList());
+    return _repository.watchAllPayments().map(
+          (payments) =>
+              payments.map(PaymentModel.fromEntity).toList(),
+        );
   }
 
-  // Get monthly summary as a stream
-  Stream<Map<String, dynamic>> getMonthlyStatsStream() {
-    return _firestore
-        .collection('payments')
-        .snapshots()
-        .asyncMap((paymentsSnapshot) async {
-      // Check if we can use cached data
-      if (_cachedStats != null &&
-          _lastStatsUpdate != null &&
-          DateTime.now().difference(_lastStatsUpdate!) < _cacheDuration) {
-        return _cachedStats!;
-      }
+  Stream<Map<String, dynamic>> getMonthlyStatsStream() =>
+      _repository.watchMonthlyStats();
 
-      final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1);
-
-      // Get all non-admin users (this could also be cached/optimized if needed)
-      final usersSnapshot = await _firestore
-          .collection('users')
-          .where('isAdmin', isEqualTo: false)
-          .get();
-      final totalUsers = usersSnapshot.docs.length;
-
-      // Filter payments for current month
-      final monthlyPayments = paymentsSnapshot.docs
-          .where((doc) =>
-              (doc.data()['date'] as Timestamp).toDate().isAfter(startOfMonth))
-          .toList();
-
-      final monthlyTotal = monthlyPayments.fold<double>(
-          0, (sum, doc) => sum + (doc.data()['amount'] as num).toDouble());
-      final paidUsers =
-          monthlyPayments.map((doc) => doc.data()['userId']).toSet().length;
-
-      // Calculate collection rate and outstanding amount
-      final collectionRate =
-          totalUsers > 0 ? (paidUsers / totalUsers) * 100 : 0.0;
-      final expectedTotal = totalUsers * EXPECTED_MONTHLY_PAYMENT;
-      final outstanding = expectedTotal - monthlyTotal;
-
-      // Cache the results
-      _cachedStats = {
-        'monthlyTotal': monthlyTotal,
-        'paidCount': paidUsers,
-        'totalUsers': totalUsers,
-        'collectionRate': collectionRate,
-        'outstanding': outstanding,
-      };
-      _lastStatsUpdate = DateTime.now();
-
-      return _cachedStats!;
-    });
-  }
-
-  // Check for users with overdue payments
-  Future<void> checkAndNotifyOverduePayments() async {
-    if (_notificationService == null) {
-      await _initializeServices();
-    }
-
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-
-    final usersSnapshot = await _firestore
-        .collection('users')
-        .where('isAdmin', isEqualTo: false)
-        .get();
-
-    for (var doc in usersSnapshot.docs) {
-      final user = UserModel.fromFirestore(doc);
-      if (user.lastPayment == null ||
-          user.lastPayment!.isBefore(startOfMonth)) {
-        // Send overdue notification
-        await _notificationService?.sendOverdueNotification(user);
-      }
-    }
-  }
+  Future<void> checkAndNotifyOverduePayments() =>
+      _repository.checkAndNotifyOverduePayments();
 
   Stream<DocumentSnapshot> getUserPaymentStatus(String userId) {
-    return _firestore.collection('users').doc(userId).snapshots();
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .snapshots();
   }
 
   Stream<QuerySnapshot> getUserPaymentsStream(String userId) {
-    return _firestore
+    return FirebaseFirestore.instance
         .collection('payments')
         .where('userId', isEqualTo: userId)
         .orderBy('date', descending: true)

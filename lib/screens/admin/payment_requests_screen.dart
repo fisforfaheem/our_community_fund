@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/services/payment_service.dart';
-import 'package:our_community_fund/services/notification_service.dart';
-import 'package:our_community_fund/models/user_model.dart';
-import 'package:our_community_fund/models/payment_model.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/domain/entities/payment_request.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
 import 'package:intl/intl.dart';
 
 class PaymentRequestsScreen extends StatefulWidget {
@@ -14,101 +12,49 @@ class PaymentRequestsScreen extends StatefulWidget {
 }
 
 class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
-  final _firestore = FirebaseFirestore.instance;
-  final _paymentService = PaymentService();
-  late final Future<NotificationService> _notificationServiceFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _notificationServiceFuture = NotificationService.init();
-  }
-
-  Future<void> _verifyPayment(Map<String, dynamic> request) async {
+  Future<void> _verifyPayment(PaymentRequest request) async {
     try {
-      // Start a batch write
-      final batch = _firestore.batch();
-
-      // 1. Create payment record
-      final payment = PaymentModel(
-        id: '',
-        userId: request['userId'],
-        userName: request['userName'],
-        amount: request['amount'],
-        date: (request['timestamp'] as Timestamp).toDate(),
-        note: request['note'],
-        recordedBy: 'Admin (Verified)',
-        type: 'regular',
-      );
-
-      // 2. Update payment request status
-      final requestRef =
-          _firestore.collection('payment_requests').doc(request['id']);
-      batch.update(requestRef, {'status': 'verified'});
-
-      // 3. Record the payment and commit the batch
-      await _paymentService.recordPayment(payment);
-      await batch.commit();
-
-      // 4. Send notification to user
-      final notificationService = await _notificationServiceFuture;
-      await notificationService.sendPaymentConfirmation(
-        UserModel(
-          id: request['userId'],
-          name: request['userName'],
-          email: '',
-          isAdmin: false,
-          totalContributions: 0,
-          createdAt: DateTime.now(),
-        ),
-        request['amount'],
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment verified successfully'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      await context.read<VerifyPaymentRequestUseCase>().execute(request);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment verified successfully'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error verifying payment: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error verifying payment: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _rejectPayment(Map<String, dynamic> request) async {
+  Future<void> _rejectPayment(PaymentRequest request) async {
     try {
-      await _firestore
-          .collection('payment_requests')
-          .doc(request['id'])
-          .update({'status': 'rejected'});
-
-      // Send rejection notification to user
-      final notificationService = await _notificationServiceFuture;
-      await notificationService.sendNotificationToUser(
-        userId: request['userId'],
-        title: 'Payment Request Rejected',
-        body:
-            'Your payment request of \$${request['amount']} has been rejected. Please contact admin for more information.',
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment request rejected'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      await context.read<RejectPaymentRequestUseCase>().execute(request);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment request rejected'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error rejecting payment: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error rejecting payment: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -117,25 +63,18 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Requests'),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('payment_requests')
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
+      appBar: AppBar(title: const Text('Payment Requests')),
+      body: StreamBuilder<List<PaymentRequest>>(
+        stream: context.read<WatchPaymentRequestsUseCase>().execute(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final requests = snapshot.data!.docs;
-
+          final requests = snapshot.data ?? [];
           if (requests.isEmpty) {
             return Center(
               child: Column(
@@ -147,10 +86,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
                     color: theme.colorScheme.outline,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'No payment requests',
-                    style: theme.textTheme.titleLarge,
-                  ),
+                  Text('No payment requests', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 8),
                   Text(
                     'When users notify about payments, they will appear here',
@@ -167,11 +103,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
             padding: const EdgeInsets.all(16),
             itemCount: requests.length,
             itemBuilder: (context, index) {
-              final request = requests[index].data() as Map<String, dynamic>;
-              request['id'] = requests[index].id;
-              final timestamp = (request['timestamp'] as Timestamp).toDate();
-              final status = request['status'] as String;
-
+              final request = requests[index];
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Padding(
@@ -183,39 +115,40 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            request['userName'],
+                            request.userName,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          _buildStatusChip(status),
+                          _buildStatusChip(request.status),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '\$${request['amount'].toStringAsFixed(2)}',
+                        '\$${request.amount.toStringAsFixed(2)}',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      if (request['note']?.isNotEmpty ?? false) ...[
+                      if (request.note?.isNotEmpty ?? false) ...[
                         const SizedBox(height: 8),
                         Text(
-                          request['note'],
+                          request.note!,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                         ),
                       ],
                       const SizedBox(height: 8),
                       Text(
-                        'Notified on ${DateFormat.yMMMd().add_jm().format(timestamp)}',
+                        'Notified on ${DateFormat.yMMMd().add_jm().format(request.timestamp)}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface.withOpacity(0.5),
                         ),
                       ),
-                      if (status == 'pending') ...[
+                      if (request.status == 'pending') ...[
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -254,15 +187,12 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
       case 'pending':
         color = Colors.orange;
         icon = Icons.pending;
-        break;
       case 'verified':
         color = Colors.green;
         icon = Icons.check_circle;
-        break;
       case 'rejected':
         color = Colors.red;
         icon = Icons.cancel;
-        break;
       default:
         color = Colors.grey;
         icon = Icons.help;

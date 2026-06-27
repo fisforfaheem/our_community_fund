@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/services/auth_service.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/domain/use_cases/notification/notification_use_cases.dart';
+import 'package:our_community_fund/domain/use_cases/user/get_current_user_use_case.dart';
 import 'package:our_community_fund/widgets/common/gradient_background.dart';
 import 'package:intl/intl.dart';
 
@@ -12,8 +14,6 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _firestore = FirebaseFirestore.instance;
-  final _authService = AuthService();
   bool _isLoading = true;
   String? _userId;
 
@@ -25,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _loadUserId() async {
     try {
-      final user = await _authService.getCurrentUser();
+      final user = await context.read<GetCurrentUserUseCase>().execute();
       if (mounted) {
         setState(() {
           _userId = user.id;
@@ -46,34 +46,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markAsRead(String notificationId) async {
-    await _firestore
-        .collection('notifications')
-        .doc(notificationId)
-        .update({'read': true});
+    await context.read<MarkNotificationReadUseCase>().execute(notificationId);
   }
 
   Future<void> _markAllAsRead() async {
-    final batch = _firestore.batch();
-    final notifications = await _firestore
-        .collection('notifications')
-        .where('userId', isEqualTo: _userId)
-        .where('read', isEqualTo: false)
-        .get();
-
-    for (var doc in notifications.docs) {
-      batch.update(doc.reference, {'read': true});
-    }
-
-    await batch.commit();
+    if (_userId == null) return;
+    await context.read<MarkAllNotificationsReadUseCase>().execute(_userId!);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -116,18 +101,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               ),
               Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _firestore
-                      .collection('notifications')
-                      .where('userId', isEqualTo: _userId)
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: context
+                      .read<WatchNotificationsUseCase>()
+                      .execute(_userId!),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    if (snapshot.data!.docs.isEmpty) {
+                    if (snapshot.data!.isEmpty) {
                       return Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -152,21 +135,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                     return ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: snapshot.data!.docs.length,
+                      itemCount: snapshot.data!.length,
                       itemBuilder: (context, index) {
-                        final doc = snapshot.data!.docs[index];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final isRead = data['read'] as bool;
-                        final timestamp =
-                            (data['timestamp'] as Timestamp).toDate();
+                        final data = snapshot.data![index];
+                        final isRead = data['read'] as bool? ?? false;
+                        final rawTimestamp = data['timestamp'];
+                        final timestamp = rawTimestamp is Timestamp
+                            ? rawTimestamp.toDate()
+                            : DateTime.now();
                         final title = data['title'] as String;
-                        final body = data['body'] as String;
+                        final body = data['body'] as String? ?? '';
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: ModernCard(
                             color: isRead ? null : Colors.blue.withOpacity(0.1),
-                            onTap: isRead ? null : () => _markAsRead(doc.id),
+                            onTap: isRead
+                                ? null
+                                : () => _markAsRead(data['id'] as String),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -204,8 +190,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                 .add_jm()
                                                 .format(timestamp),
                                             style: TextStyle(
-                                              color:
-                                                  Colors.white.withOpacity(0.7),
+                                              color: Colors.white
+                                                  .withOpacity(0.7),
                                               fontSize: 12,
                                             ),
                                           ),

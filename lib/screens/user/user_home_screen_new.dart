@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/models/user_model.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/domain/entities/payment.dart';
+import 'package:our_community_fund/domain/entities/user.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
+import 'package:our_community_fund/domain/use_cases/user/get_current_user_use_case.dart';
+import 'package:our_community_fund/domain/use_cases/user/watch_user_data_use_case.dart';
 import 'package:our_community_fund/services/auth_service.dart';
-import 'package:our_community_fund/services/payment_service.dart';
 import 'package:our_community_fund/screens/user/notifications_screen.dart';
 import 'package:our_community_fund/screens/user/profile_edit_screen.dart';
 import 'package:our_community_fund/widgets/common/gradient_background.dart';
@@ -16,8 +20,6 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
-  final _authService = AuthService();
-  final _paymentService = PaymentService();
   late UserModel _currentUser;
   bool _isLoading = true;
 
@@ -29,7 +31,8 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final user = await _authService.getCurrentUser();
+      final user = UserModel.fromEntity(
+          await context.read<GetCurrentUserUseCase>().execute());
       if (mounted) {
         setState(() {
           _currentUser = user;
@@ -75,7 +78,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             label: 'Logout',
             onPressed: () {
               Navigator.pop(context);
-              _authService.signOut();
+              context.read<AuthService>().signOut();
             },
             icon: Icons.logout,
           ),
@@ -200,17 +203,17 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Widget _buildPaymentStatus() {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _paymentService.getUserPaymentStatus(_currentUser.id),
+    return StreamBuilder<User?>(
+      stream: context.read<WatchUserDataUseCase>().execute(_currentUser.id),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final hasPaidThisMonth = data?['lastPaymentDate'] != null &&
-            (data!['lastPaymentDate'] as Timestamp).toDate().month ==
-                DateTime.now().month;
+        final lastPayment = snapshot.data?.lastPayment;
+        final hasPaidThisMonth = lastPayment != null &&
+            lastPayment.month == DateTime.now().month &&
+            lastPayment.year == DateTime.now().year;
 
         return ModernCard(
           color: hasPaidThisMonth
@@ -293,14 +296,16 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             ),
           ),
         ),
-        StreamBuilder<QuerySnapshot>(
-          stream: _paymentService.getUserPaymentsStream(_currentUser.id),
+        StreamBuilder<List<Payment>>(
+          stream: context
+              .read<WatchUserPaymentsUseCase>()
+              .execute(_currentUser.id),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.data!.docs.isEmpty) {
+            if (snapshot.data!.isEmpty) {
               return ModernCard(
                 child: Column(
                   children: [
@@ -323,11 +328,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             }
 
             return Column(
-              children: snapshot.data!.docs.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final date = (data['date'] as Timestamp).toDate();
-                final amount = data['amount'] as num;
-
+              children: snapshot.data!.map((payment) {
                 return ModernCard(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -356,7 +357,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                               ),
                             ),
                             Text(
-                              DateFormat.yMMMd().add_jm().format(date),
+                              DateFormat.yMMMd()
+                                  .add_jm()
+                                  .format(payment.date),
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.7),
                                 fontSize: 12,
@@ -375,7 +378,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '\$${amount.toStringAsFixed(2)}',
+                          '\$${payment.amount.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:our_community_fund/domain/use_cases/user/watch_user_data_use_case.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:our_community_fund/core/config/firebase_config.dart';
 import 'package:our_community_fund/presentation/providers/app_providers.dart';
@@ -103,11 +103,8 @@ class AuthWrapper extends StatelessWidget {
       return const LoginScreen();
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
+    return StreamBuilder(
+      stream: context.read<WatchUserDataUseCase>().execute(user.uid),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Scaffold(
@@ -121,7 +118,7 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        if (!snapshot.hasData || snapshot.data == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await context.read<AuthService>().signOut();
           });
@@ -140,8 +137,7 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        final userData = snapshot.data!.data() as Map<String, dynamic>;
-        final isAdmin = userData['isAdmin'] ?? false;
+        final isAdmin = snapshot.data!.isAdmin;
 
         return isAdmin ? const AdminHomeScreen() : const UserHomeScreen();
       },

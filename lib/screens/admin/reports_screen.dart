@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:our_community_fund/services/reports_service.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/domain/use_cases/reports/reports_use_cases.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:path_provider/path_provider.dart';
@@ -13,7 +14,6 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  final ReportsService _reportsService = ReportsService();
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isLoading = false;
@@ -44,12 +44,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final stats = await _reportsService.getPaymentStats(
+      final stats = await context.read<GetPaymentStatsUseCase>().execute(
         startDate: _startDate,
         endDate: _endDate,
       );
-      final complianceStats = await _reportsService.getUserComplianceStats();
-      final userSummary = await _reportsService.getUserPaymentSummary();
+      final complianceStats =
+          await context.read<GetUserComplianceStatsUseCase>().execute();
+      final userSummary =
+          await context.read<GetUserPaymentSummaryUseCase>().execute();
 
       setState(() {
         _stats = stats;
@@ -942,15 +944,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(now);
 
       // Export payments data
-      final paymentsCSV = await _reportsService.exportPaymentsToCSV(
+      final paymentsCSV =
+          await context.read<ExportPaymentsCsvUseCase>().execute(
         startDate: _startDate,
         endDate: _endDate,
       );
       final paymentsFile = File('${directory.path}/payments_$timestamp.csv');
       await paymentsFile.writeAsString(paymentsCSV);
 
-      // Export user summary
-      final userSummaryCSV = await _reportsService.exportUserSummaryToCSV();
+      final userSummaryCSV =
+          await context.read<ExportUserSummaryCsvUseCase>().execute();
       final summaryFile = File('${directory.path}/user_summary_$timestamp.csv');
       await summaryFile.writeAsString(userSummaryCSV);
 

@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/models/user_model.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/domain/entities/payment.dart';
+import 'package:our_community_fund/domain/use_cases/member/watch_non_admin_members_use_case.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
 import 'package:our_community_fund/services/auth_service.dart';
-import 'package:our_community_fund/services/payment_service.dart';
 import 'package:our_community_fund/services/notification_service.dart';
 import 'package:our_community_fund/screens/admin/record_payment_screen.dart';
 import 'package:our_community_fund/screens/admin/reports_screen.dart';
@@ -27,9 +30,6 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen>
     with SingleTickerProviderStateMixin {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
-  final PaymentService _paymentService = PaymentService();
   late final NotificationService _notificationService;
   bool _isInitialized = false;
   late AnimationController _animationController;
@@ -38,15 +38,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   @override
   void initState() {
     super.initState();
-    _initializeServices();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
     _animationController.forward();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
       _selectedTheme = themeProvider.currentThemeName;
+      _notificationService = context.read<NotificationService>();
+      await _notificationService.initialize();
+      if (mounted) setState(() => _isInitialized = true);
     });
   }
 
@@ -54,15 +56,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   void dispose() {
     _animationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _initializeServices() async {
-    _notificationService = await NotificationService.init();
-    if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
-    }
   }
 
   @override
@@ -96,14 +89,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             ),
           ),
           actions: [
-            StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('payment_requests')
-                  .where('status', isEqualTo: 'pending')
-                  .snapshots(),
+            StreamBuilder<int>(
+              stream: context
+                  .read<WatchPendingPaymentRequestCountUseCase>()
+                  .execute(),
               builder: (context, snapshot) {
-                final pendingCount =
-                    snapshot.hasData ? snapshot.data!.docs.length : 0;
+                final pendingCount = snapshot.data ?? 0;
 
                 return Badge(
                   isLabelVisible: pendingCount > 0,
@@ -165,14 +156,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _firestore
-                          .collection('payment_requests')
-                          .where('status', isEqualTo: 'pending')
-                          .snapshots(),
+                    StreamBuilder<int>(
+                      stream: context
+                          .read<WatchPendingPaymentRequestCountUseCase>()
+                          .execute(),
                       builder: (context, snapshot) {
-                        final pendingCount =
-                            snapshot.hasData ? snapshot.data!.docs.length : 0;
+                        final pendingCount = snapshot.data ?? 0;
                         if (pendingCount == 0) return const SizedBox.shrink();
 
                         return GestureDetector(
@@ -347,7 +336,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
             ),
           ),
           child: StreamBuilder<Map<String, dynamic>>(
-            stream: _paymentService.getMonthlyStatsStream(),
+            stream: context.read<WatchMonthlyStatsUseCase>().execute(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return Center(
@@ -517,18 +506,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               ],
             ),
           ),
-          StreamBuilder<QuerySnapshot>(
-            stream: _firestore
-                .collection('payments')
-                .orderBy('date', descending: true)
-                .limit(5)
-                .snapshots(),
+          StreamBuilder<List<Payment>>(
+            stream: context.read<WatchRecentPaymentsUseCase>().execute(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.data!.docs.isEmpty) {
+              if (snapshot.data!.isEmpty) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -553,15 +538,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
               return ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: snapshot.data!.docs.length,
+                itemCount: snapshot.data!.length,
                 separatorBuilder: (_, __) => Divider(
                   color: theme.colorScheme.outline.withOpacity(0.2),
                   height: 1,
                 ),
                 itemBuilder: (context, index) {
-                  final data =
-                      snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                  final date = (data['date'] as Timestamp).toDate();
+                  final payment = snapshot.data![index];
+                  final date = payment.date;
                   final isToday = DateTime.now().difference(date).inDays == 0;
                   final isYesterday =
                       DateTime.now().difference(date).inDays == 1;
@@ -591,7 +575,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                       children: [
                         Expanded(
                           child: Text(
-                            data['userName'] ?? 'Unknown User',
+                            payment.userName,
                             style: TextStyle(
                               color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w500,
@@ -609,7 +593,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '\$${(data['amount'] as num).toStringAsFixed(2)}',
+                            '\$${payment.amount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               color: Colors.green,
                               fontWeight: FontWeight.w600,
@@ -632,7 +616,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                         ),
                       ),
                     ),
-                    onTap: () => _showPaymentDetails(data),
+                    onTap: () => _showPaymentDetails({
+                      'userName': payment.userName,
+                      'amount': payment.amount,
+                      'date': payment.date,
+                      'note': payment.note,
+                      'recordedBy': payment.recordedBy,
+                    }),
                   );
                 },
               );
@@ -691,14 +681,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   MaterialPageRoute(builder: (_) => const ReportsScreen()),
                 ),
               ),
-              StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('payment_requests')
-                    .where('status', isEqualTo: 'pending')
-                    .snapshots(),
+              StreamBuilder<int>(
+                stream: context
+                    .read<WatchPendingPaymentRequestCountUseCase>()
+                    .execute(),
                 builder: (context, snapshot) {
-                  final pendingCount =
-                      snapshot.hasData ? snapshot.data!.docs.length : 0;
+                  final pendingCount = snapshot.data ?? 0;
 
                   return Stack(
                     children: [
@@ -791,14 +779,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
       String label, IconData icon, VoidCallback onPressed) {
     final theme = Theme.of(context);
     if (label == 'Payment Requests') {
-      return StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('payment_requests')
-            .where('status', isEqualTo: 'pending')
-            .snapshots(),
+      return StreamBuilder<int>(
+        stream: context
+            .read<WatchPendingPaymentRequestCountUseCase>()
+            .execute(),
         builder: (context, snapshot) {
-          final pendingCount =
-              snapshot.hasData ? snapshot.data!.docs.length : 0;
+          final pendingCount = snapshot.data ?? 0;
 
           return Material(
             color: theme.colorScheme.surface,
@@ -921,20 +907,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
   }
 
   Widget _buildMembersSummary() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('users')
-          .where('isAdmin', isEqualTo: false)
-          .limit(5)
-          .snapshots(),
+    return StreamBuilder(
+      stream: context.read<WatchNonAdminMembersUseCase>().execute(limit: 5),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final users = snapshot.data!.docs
-            .map((doc) => UserModel.fromFirestore(doc))
-            .toList();
+        final users =
+            snapshot.data!.map(UserModel.fromEntity).toList();
 
         return Card(
           elevation: 0,
@@ -1453,7 +1434,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              _authService.signOut();
+              context.read<AuthService>().signOut();
             },
             child: const Text('Logout'),
           ),
@@ -1464,7 +1445,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
 
   void _showPaymentDetails(Map<String, dynamic> payment) {
     final theme = Theme.of(context);
-    final date = (payment['date'] as Timestamp).toDate();
+    final rawDate = payment['date'];
+    final date = rawDate is Timestamp
+        ? rawDate.toDate()
+        : rawDate as DateTime;
     final dateStr = DateFormat.yMMMd().add_jm().format(date);
 
     showDialog(
@@ -3020,34 +3004,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         'disbursements',
       ];
 
-      int totalDeleted = 0;
-
-      // Delete all documents from each collection
-      for (String collectionName in collections) {
-        final QuerySnapshot snapshot =
-            await _firestore.collection(collectionName).get();
-
-        // Delete in batches of 500 (Firestore limit)
-        final batch = _firestore.batch();
-        int count = 0;
-
-        for (var doc in snapshot.docs) {
-          batch.delete(doc.reference);
-          count++;
-          totalDeleted++;
-
-          // Commit batch every 500 documents
-          if (count >= 500) {
-            await batch.commit();
-            count = 0;
-          }
-        }
-
-        // Commit remaining documents
-        if (count > 0) {
-          await batch.commit();
-        }
-      }
+      final totalDeleted = await context
+          .read<DeleteAllCollectionsUseCase>()
+          .execute(collections);
 
       // Close loading dialog
       if (mounted) Navigator.pop(context);
@@ -3122,7 +3081,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
                   await prefs.clear();
 
                   // Log out the current user (this will navigate to login screen)
-                  await _authService.signOut();
+                  await context.read<AuthService>().signOut();
                 },
                 child: const Text('Okay'),
               ),

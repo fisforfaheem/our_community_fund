@@ -1,14 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:ui' as ui;
-import 'package:our_community_fund/models/user_model.dart';
-import 'package:our_community_fund/services/payment_service.dart';
+import 'dart:io';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   final UserModel user;
@@ -20,7 +20,6 @@ class PaymentHistoryScreen extends StatefulWidget {
 }
 
 class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
-  final PaymentService _paymentService = PaymentService();
   final GlobalKey _screenshotKey = GlobalKey();
   bool _isLoading = false;
 
@@ -95,14 +94,16 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         ),
         child: RepaintBoundary(
           key: _screenshotKey,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _paymentService.getUserPaymentsStream(widget.user.id),
+          child: StreamBuilder(
+            stream: context
+                .read<WatchUserPaymentsUseCase>()
+                .execute(widget.user.id),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.data!.docs.isEmpty) {
+              if (snapshot.data!.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -125,12 +126,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                 );
               }
 
-              final payments = snapshot.data!.docs;
-              double totalAmount = 0;
-              for (var payment in payments) {
-                totalAmount +=
-                    (payment.data() as Map<String, dynamic>)['amount'] as num;
-              }
+              final payments = snapshot.data!;
+              final totalAmount =
+                  payments.fold<double>(0, (sum, p) => sum + p.amount);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -153,12 +151,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: payments.length,
                       itemBuilder: (context, index) {
-                        final payment =
-                            payments[index].data() as Map<String, dynamic>;
-                        final date = (payment['date'] as Timestamp).toDate();
-                        final amount = payment['amount'] as num;
-                        final note = payment['note'] as String?;
-                        final recordedBy = payment['recordedBy'] as String?;
+                        final payment = payments[index];
+                        final note = payment.note;
+                        final recordedBy = payment.recordedBy;
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -180,14 +175,14 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                             title: Row(
                               children: [
                                 Text(
-                                  '\$${amount.toStringAsFixed(2)}',
+                                  '\$${payment.amount.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const Spacer(),
                                 Text(
-                                  DateFormat.yMMMd().format(date),
+                                  DateFormat.yMMMd().format(payment.date),
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -199,14 +194,12 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                                   const SizedBox(height: 4),
                                   Text('Note: $note'),
                                 ],
-                                if (recordedBy != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Recorded by: $recordedBy',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Recorded by: $recordedBy',
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall,
+                                ),
                               ],
                             ),
                           ),

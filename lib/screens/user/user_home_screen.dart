@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/models/user_model.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/domain/entities/payment.dart';
+import 'package:our_community_fund/domain/entities/user.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
+import 'package:our_community_fund/domain/use_cases/user/get_current_user_use_case.dart';
+import 'package:our_community_fund/domain/use_cases/user/watch_user_data_use_case.dart';
 import 'package:our_community_fund/services/auth_service.dart';
-import 'package:our_community_fund/services/payment_service.dart';
 import 'package:our_community_fund/screens/user/notifications_screen.dart';
 import 'package:our_community_fund/screens/user/profile_edit_screen.dart';
 import 'package:our_community_fund/widgets/common/gradient_background.dart';
@@ -17,9 +21,6 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
-  final _authService = AuthService();
-  final _paymentService = PaymentService();
-  final _firestore = FirebaseFirestore.instance;
   late UserModel _currentUser;
   bool _isLoading = true;
 
@@ -31,7 +32,8 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final user = await _authService.getCurrentUser();
+      final user =
+          UserModel.fromEntity(await context.read<GetCurrentUserUseCase>().execute());
       if (mounted) {
         setState(() {
           _currentUser = user;
@@ -75,7 +77,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             label: 'Logout',
             onPressed: () {
               Navigator.pop(context);
-              _authService.signOut();
+              context.read<AuthService>().signOut();
             },
             icon: Icons.logout,
           ),
@@ -98,11 +100,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       }
 
       setState(() => isLoading = true);
-      _paymentService
-          .recordExtraContribution(
-        _currentUser.id,
-        amount,
-        noteController.text.trim(),
+      context.read<RecordExtraContributionUseCase>().execute(
+        userId: _currentUser.id,
+        amount: amount,
+        note: noteController.text.trim(),
       )
           .then((_) {
         if (mounted) {
@@ -250,22 +251,12 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
                 try {
                   final user = FirebaseAuth.instance.currentUser;
                   if (user != null) {
-                    final userDoc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
-                    final userData = userDoc.data() as Map<String, dynamic>;
-
-                    await FirebaseFirestore.instance
-                        .collection('payment_requests')
-                        .add({
-                      'userId': user.uid,
-                      'userName': userData['name'],
-                      'amount': double.parse(amountController.text),
-                      'note': noteController.text,
-                      'status': 'pending',
-                      'timestamp': FieldValue.serverTimestamp(),
-                    });
+                    await context.read<SubmitPaymentRequestUseCase>().execute(
+                          userId: user.uid,
+                          userName: _currentUser.name,
+                          amount: double.parse(amountController.text),
+                          note: noteController.text,
+                        );
 
                     if (mounted) {
                       Navigator.pop(context);
@@ -461,8 +452,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        StreamBuilder<DocumentSnapshot>(
-          stream: _paymentService.getUserPaymentStatus(_currentUser.id),
+        StreamBuilder<User?>(
+          stream: context
+              .read<WatchUserDataUseCase>()
+              .execute(_currentUser.id),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return Center(
@@ -472,14 +465,14 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               );
             }
 
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            final lastPayment = data?['lastPayment'] as Timestamp?;
+            final user = snapshot.data;
+            final lastPayment = user?.lastPayment;
 
             // Check if there's a payment for the current month
             final now = DateTime.now();
             final hasPaidThisMonth = lastPayment != null &&
-                lastPayment.toDate().year == now.year &&
-                lastPayment.toDate().month == now.month;
+                lastPayment.year == now.year &&
+                lastPayment.month == now.month;
 
             return Container(
               padding: const EdgeInsets.all(20),
@@ -578,22 +571,18 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           },
         ),
         const SizedBox(height: 16),
-        StreamBuilder<QuerySnapshot>(
-          stream: _firestore
-              .collection('payment_requests')
-              .where('userId', isEqualTo: _currentUser.id)
-              .orderBy('timestamp', descending: true)
-              .limit(1)
-              .snapshots(),
+        StreamBuilder(
+          stream: context
+              .read<WatchUserPaymentRequestsUseCase>()
+              .execute(_currentUser.id),
           builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const SizedBox.shrink();
             }
 
-            final request =
-                snapshot.data!.docs.first.data() as Map<String, dynamic>;
-            final status = request['status'] as String;
-            final timestamp = (request['timestamp'] as Timestamp).toDate();
+            final request = snapshot.data!.first;
+            final status = request.status;
+            final timestamp = request.timestamp;
 
             Color statusColor;
             IconData statusIcon;
@@ -670,7 +659,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   Widget _buildContributionStats() {
     final theme = Theme.of(context);
     return StreamBuilder<Map<String, dynamic>>(
-      stream: _paymentService.getMonthlyStatsStream(),
+      stream: context.read<WatchMonthlyStatsUseCase>().execute(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return Center(
@@ -813,8 +802,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             ],
           ),
         ),
-        StreamBuilder<QuerySnapshot>(
-          stream: _paymentService.getUserPaymentsStream(_currentUser.id),
+        StreamBuilder<List<Payment>>(
+          stream: context
+              .read<WatchUserPaymentsUseCase>()
+              .execute(_currentUser.id),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return Center(
@@ -824,7 +815,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               );
             }
 
-            if (snapshot.data!.docs.isEmpty) {
+            if (snapshot.data!.isEmpty) {
               return Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
@@ -863,13 +854,12 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
             }
 
             // Group contributions by month
-            final contributions = snapshot.data!.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+            final contributions = snapshot.data!.map((payment) {
               return {
-                'date': (data['date'] as Timestamp).toDate(),
-                'amount': data['amount'] as num,
-                'isExtra': data['isExtra'] ?? false,
-                'note': data['note'] as String?,
+                'date': payment.date,
+                'amount': payment.amount,
+                'isExtra': payment.type == 'extra',
+                'note': payment.note,
               };
             }).toList();
 

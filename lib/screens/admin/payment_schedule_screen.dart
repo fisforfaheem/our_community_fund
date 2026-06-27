@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'package:our_community_fund/domain/use_cases/payment/payment_use_cases.dart';
 import 'package:intl/intl.dart';
 
 class PaymentScheduleScreen extends StatefulWidget {
@@ -10,8 +12,6 @@ class PaymentScheduleScreen extends StatefulWidget {
 }
 
 class _PaymentScheduleScreenState extends State<PaymentScheduleScreen> {
-  final _firestore = FirebaseFirestore.instance;
-  // final _notificationService = NotificationService();
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _amountController;
@@ -32,65 +32,42 @@ class _PaymentScheduleScreenState extends State<PaymentScheduleScreen> {
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
     try {
-      final doc = await _firestore.collection('settings').doc('payments').get();
-      if (doc.exists) {
-        setState(() {
-          _settings = doc.data();
-          _amountController.text = _settings!['standardAmount'].toString();
-          _reminderDayController.text = _settings!['reminderDay'].toString();
-          _gracePeriodController.text =
-              _settings!['gracePeriodDays'].toString();
-        });
-      } else {
-        // Create default settings
-        final defaultSettings = {
-          'standardAmount': 50.0,
-          'reminderDay': 25,
-          'gracePeriodDays': 5,
-          'lastUpdated': FieldValue.serverTimestamp(),
-        };
-        await _firestore
-            .collection('settings')
-            .doc('payments')
-            .set(defaultSettings);
-        setState(() {
-          _settings = defaultSettings;
-          _amountController.text = '50.0';
-          _reminderDayController.text = '25';
-          _gracePeriodController.text = '5';
-        });
-      }
+      final settings =
+          await context.read<GetPaymentSettingsUseCase>().execute();
+      setState(() {
+        _settings = settings;
+        _amountController.text = settings['standardAmount'].toString();
+        _reminderDayController.text = settings['reminderDay'].toString();
+        _gracePeriodController.text = settings['gracePeriodDays'].toString();
+      });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveSettings() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      try {
-        final updatedSettings = {
-          'standardAmount': double.parse(_amountController.text),
-          'reminderDay': int.parse(_reminderDayController.text),
-          'gracePeriodDays': int.parse(_gracePeriodController.text),
-          'lastUpdated': FieldValue.serverTimestamp(),
-        };
+    if (!_formKey.currentState!.validate()) return;
 
-        await _firestore
-            .collection('settings')
-            .doc('payments')
-            .update(updatedSettings);
-
+    setState(() => _isLoading = true);
+    try {
+      await context.read<SavePaymentSettingsUseCase>().execute({
+        'standardAmount': double.parse(_amountController.text),
+        'reminderDay': int.parse(_reminderDayController.text),
+        'gracePeriodDays': int.parse(_gracePeriodController.text),
+      });
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Settings saved successfully')),
         );
-      } catch (e) {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving settings: $e')),
         );
-      } finally {
-        setState(() => _isLoading = false);
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -245,7 +222,7 @@ class _PaymentScheduleScreenState extends State<PaymentScheduleScreen> {
                       if (_settings?['lastUpdated'] != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'Last Updated: ${DateFormat('MMM dd, yyyy - hh:mm a').format((_settings!['lastUpdated'] as Timestamp).toDate())}',
+                          'Last Updated: ${_formatLastUpdated(_settings!['lastUpdated'])}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -258,6 +235,13 @@ class _PaymentScheduleScreenState extends State<PaymentScheduleScreen> {
         ),
       ),
     );
+  }
+
+  String _formatLastUpdated(dynamic value) {
+    if (value is Timestamp) {
+      return DateFormat('MMM dd, yyyy - hh:mm a').format(value.toDate());
+    }
+    return value.toString();
   }
 
   @override

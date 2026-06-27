@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:our_community_fund/models/user_model.dart';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/domain/use_cases/member/watch_non_admin_members_use_case.dart';
 import 'package:our_community_fund/screens/admin/payment_history_screen.dart';
 
 class MembersListScreen extends StatefulWidget {
@@ -12,7 +13,6 @@ class MembersListScreen extends StatefulWidget {
 }
 
 class _MembersListScreenState extends State<MembersListScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedFilter = 'All';
@@ -128,11 +128,8 @@ class _MembersListScreenState extends State<MembersListScreen> {
                 },
               ),
             ),
-            StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('users')
-                  .where('isAdmin', isEqualTo: false)
-                  .snapshots(),
+            StreamBuilder(
+              stream: context.read<WatchNonAdminMembersUseCase>().execute(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Expanded(
@@ -140,8 +137,8 @@ class _MembersListScreenState extends State<MembersListScreen> {
                   );
                 }
 
-                var users = snapshot.data!.docs
-                    .map((doc) => UserModel.fromFirestore(doc))
+                var users = snapshot.data!
+                    .map(UserModel.fromEntity)
                     .where((user) =>
                         user.name.toLowerCase().contains(_searchQuery) ||
                         user.email.toLowerCase().contains(_searchQuery))
