@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:our_community_fund/core/utils/logger.dart';
 import 'package:csv/csv.dart';
 
 class ReportsService {
@@ -53,9 +53,7 @@ class ReportsService {
         'monthlyTrends': monthlyTrends,
       };
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting payment stats: $e');
-      }
+      AppLogger.error('Error getting payment stats', e);
       rethrow;
     }
   }
@@ -109,9 +107,7 @@ class ReportsService {
         'totalUsers': usersSnapshot.docs.length,
       };
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user compliance stats: $e');
-      }
+      AppLogger.error('Error getting user compliance stats', e);
       rethrow;
     }
   }
@@ -167,9 +163,7 @@ class ReportsService {
 
       return summary;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user payment summary: $e');
-      }
+      AppLogger.error('Error getting user payment summary', e);
       rethrow;
     }
   }
@@ -212,9 +206,7 @@ class ReportsService {
 
       return const ListToCsvConverter().convert(csvData);
     } catch (e) {
-      if (kDebugMode) {
-        print('Error exporting payments to CSV: $e');
-      }
+      AppLogger.error('Error exporting payments to CSV', e);
       rethrow;
     }
   }
@@ -248,9 +240,7 @@ class ReportsService {
 
       return const ListToCsvConverter().convert(csvData);
     } catch (e) {
-      if (kDebugMode) {
-        print('Error exporting user summary to CSV: $e');
-      }
+      AppLogger.error('Error exporting user summary to CSV', e);
       rethrow;
     }
   }

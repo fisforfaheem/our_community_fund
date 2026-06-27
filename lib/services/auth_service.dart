@@ -1,96 +1,60 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:our_community_fund/models/user_model.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:our_community_fund/data/datasources/auth_remote_data_source.dart';
+import 'package:our_community_fund/data/datasources/user_remote_data_source.dart';
+import 'package:our_community_fund/data/models/user_model.dart';
+import 'package:our_community_fund/data/repositories/auth_repository_impl.dart';
+import 'package:our_community_fund/domain/repositories/auth_repository.dart';
 
+/// Thin facade over [AuthRepository] for screens not yet migrated to use cases.
+/// New code should prefer use cases from `context.read<LoginUseCase>()`, etc.
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthRepository _repository;
+  final firebase_auth.FirebaseAuth _auth;
 
-  // Get current user
-  User? get currentUser => _auth.currentUser;
+  AuthService({
+    AuthRepository? repository,
+    firebase_auth.FirebaseAuth? auth,
+  })  : _repository = repository ??
+            AuthRepositoryImpl(
+              authRemote: AuthRemoteDataSourceImpl(),
+              userRemote: UserRemoteDataSourceImpl(),
+            ),
+        _auth = auth ?? firebase_auth.FirebaseAuth.instance;
 
-  // Auth state changes stream
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  firebase_auth.User? get currentUser => _auth.currentUser;
 
-  // Sign in with email and password
-  Future<UserCredential> signInWithEmailAndPassword(
-      String email, String password) async {
-    try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
+  /// Firebase auth stream — kept for legacy screens that expect [User].
+  Stream<firebase_auth.User?> get authStateChanges =>
+      _auth.authStateChanges();
+
+  Future<void> signInWithEmailAndPassword(String email, String password) {
+    return _repository.signIn(email: email, password: password);
   }
 
-  // Register with email and password
-  Future<UserCredential> registerWithEmailAndPassword(
-      String email, String password, String name, bool isAdmin) async {
-    try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      // Create user document in Firestore
-      await _firestore.collection('users').doc(result.user!.uid).set({
-        'name': name,
-        'email': email,
-        'isAdmin': isAdmin,
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastPayment': null,
-        'totalContributions': 0,
-      });
-
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+  Future<void> registerWithEmailAndPassword(
+    String email,
+    String password,
+    String name,
+    bool isAdmin,
+  ) {
+    return _repository.register(
+      email: email,
+      password: password,
+      name: name,
+      isAdmin: isAdmin,
+    );
   }
 
-  // Sign out
-  Future<void> signOut() async {
-    try {
-      await _auth.signOut();
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<void> signOut() => _repository.signOut();
 
-  // Reset password
-  Future<void> resetPassword(String email) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<void> resetPassword(String email) =>
+      _repository.resetPassword(email: email);
 
   Future<UserModel> getCurrentUser() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw Exception('No user is currently signed in');
-    }
-
-    final userDoc = await _firestore.collection('users').doc(user.uid).get();
-    if (!userDoc.exists) {
-      throw Exception('User data not found');
-    }
-
-    return UserModel.fromFirestore(userDoc);
+    final user = await _repository.getCurrentUser();
+    return UserModel.fromEntity(user);
   }
 
-  // Update user profile
-  Future<void> updateUserProfile(String userId, String name) async {
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'name': name,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update profile: ${e.toString()}');
-    }
-  }
+  Future<void> updateUserProfile(String userId, String name) =>
+      _repository.updateUserProfile(userId: userId, name: name);
 }

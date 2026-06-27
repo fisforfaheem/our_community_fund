@@ -1,5 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:our_community_fund/core/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:our_community_fund/models/user_model.dart';
@@ -35,20 +35,14 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        if (kDebugMode) {
-          print('Notification tapped: ${response.payload}');
-        }
+        AppLogger.debug('Notification tapped: ${response.payload}');
       },
     );
   }
 
   Future<void> _showLocalNotification(RemoteNotification notification) async {
     try {
-      if (kDebugMode) {
-        print('Showing local notification:');
-        print('Title: ${notification.title}');
-        print('Body: ${notification.body}');
-      }
+      AppLogger.debug('Showing local notification: ${notification.title}');
 
       const AndroidNotificationDetails androidDetails =
           AndroidNotificationDetails(
@@ -79,14 +73,9 @@ class NotificationService {
         payload: 'Default_Sound',
       );
 
-      if (kDebugMode) {
-        print('Local notification displayed successfully');
-      }
+      AppLogger.debug('Local notification displayed successfully');
     } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('Error showing local notification: $e');
-        print('Stack trace: $stackTrace');
-      }
+      AppLogger.error('Error showing local notification', e, stackTrace);
     }
   }
 
@@ -97,9 +86,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     try {
-      if (kDebugMode) {
-        print('Initializing NotificationService...');
-      }
+      AppLogger.debug('Initializing NotificationService...');
 
       // Request permission
       NotificationSettings settings = await _messaging.requestPermission(
@@ -108,10 +95,8 @@ class NotificationService {
         sound: true,
       );
 
-      if (kDebugMode) {
-        print(
-            'Notification permission status: ${settings.authorizationStatus}');
-      }
+      AppLogger.debug(
+          'Notification permission status: ${settings.authorizationStatus}');
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         // Get FCM token
@@ -125,9 +110,7 @@ class NotificationService {
               'fcmToken': token,
             });
           }
-          if (kDebugMode) {
-            print('FCM Token: $token');
-          }
+          AppLogger.debug('FCM token refreshed and saved');
         }
 
         // Handle token refresh
@@ -144,10 +127,8 @@ class NotificationService {
 
         // Handle foreground messages
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          if (kDebugMode) {
-            print(
-                'Received foreground message: ${message.notification?.title}');
-          }
+          AppLogger.debug(
+              'Received foreground message: ${message.notification?.title}');
           // Handle the message display here
           if (message.notification != null) {
             _showLocalNotification(message.notification!);
@@ -155,9 +136,7 @@ class NotificationService {
         });
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Error initializing notifications: $e');
-      }
+      AppLogger.error('Error initializing notifications', e);
     }
   }
 
@@ -168,32 +147,21 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      if (kDebugMode) {
-        print('Sending notification to user: $userId');
-        print('Title: $title');
-        print('Body: $body');
-        print('Data: $data');
-      }
+      AppLogger.debug('Sending notification to user: $userId');
 
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) {
-        if (kDebugMode) {
-          print('User not found: $userId');
-        }
+        AppLogger.debug('User not found: $userId');
         throw Exception('User not found');
       }
 
       final fcmToken = userDoc.data()?['fcmToken'];
       if (fcmToken == null) {
-        if (kDebugMode) {
-          print('User has no FCM token: $userId');
-        }
+        AppLogger.debug('User has no FCM token: $userId');
         throw Exception('User has no FCM token');
       }
 
-      if (kDebugMode) {
-        print('Found FCM token: $fcmToken');
-      }
+      AppLogger.debug('FCM token found for user');
 
       await _firestore.collection('notifications').add({
         'userId': userId,
@@ -204,9 +172,7 @@ class NotificationService {
         'read': false,
       });
 
-      if (kDebugMode) {
-        print('Notification stored in Firestore');
-      }
+      AppLogger.debug('Notification stored in Firestore');
 
       // Send to Firebase Cloud Messaging
       await _firestore.collection('fcm').add({
@@ -217,14 +183,9 @@ class NotificationService {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      if (kDebugMode) {
-        print('FCM message queued for delivery');
-      }
+      AppLogger.debug('FCM message queued for delivery');
     } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('Failed to send notification: $e');
-        print('Stack trace: $stackTrace');
-      }
+      AppLogger.error('Failed to send notification', e, stackTrace);
       throw Exception('Failed to send notification: $e');
     }
   }
@@ -244,7 +205,7 @@ class NotificationService {
           data: data,
         );
       } catch (e) {
-        print('Failed to send notification to user $userId: $e');
+        AppLogger.error('Failed to send notification to user $userId', e);
       }
     }
   }
@@ -396,9 +357,7 @@ class NotificationService {
   }
 
   Future<void> sendTestNotification(String userId) async {
-    if (kDebugMode) {
-      print('Sending test notification to user: $userId');
-    }
+    AppLogger.debug('Sending test notification to user: $userId');
 
     await sendNotificationToUser(
       userId: userId,

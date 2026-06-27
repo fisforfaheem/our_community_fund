@@ -1,5 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/foundation.dart';
+import 'package:our_community_fund/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AnalyticsService {
@@ -54,9 +54,7 @@ class AnalyticsService {
         'monthlyTrends': monthlyTrends,
       };
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting payment stats: $e');
-      }
+      AppLogger.error('Error getting payment stats', e);
       rethrow;
     }
   }
@@ -110,9 +108,7 @@ class AnalyticsService {
         'totalUsers': usersSnapshot.docs.length,
       };
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user compliance stats: $e');
-      }
+      AppLogger.error('Error getting user compliance stats', e);
       rethrow;
     }
   }
@@ -168,9 +164,7 @@ class AnalyticsService {
 
       return summary;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user payment summary: $e');
-      }
+      AppLogger.error('Error getting user payment summary', e);
       rethrow;
     }
   }

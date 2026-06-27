@@ -198,17 +198,10 @@ flutter pub get
    platform :ios, '12.0'
    ```
 
-7. Update Firebase Options:
-   - Replace placeholders in lib/firebase_options.dart with your config:
-   ```dart
-   static const FirebaseOptions android = FirebaseOptions(
-     apiKey: 'YOUR-ACTUAL-API-KEY',
-     appId: 'YOUR-ACTUAL-APP-ID',
-     messagingSenderId: 'YOUR-ACTUAL-SENDER-ID',
-     projectId: 'YOUR-ACTUAL-PROJECT-ID',
-     storageBucket: 'YOUR-ACTUAL-BUCKET',
-   );
-   ```
+7. Configure Firebase (compile-time defines):
+   - Copy `.env.example` to `run_dev.sh` and fill in values from Firebase Console
+   - Run the app: `./run_dev.sh` or pass `--dart-define=KEY=value` flags to `flutter run`
+   - See `lib/core/config/firebase_config.dart` for required define names
 
 8. Set up Firestore Security Rules:
    ```javascript
@@ -324,7 +317,7 @@ flutter run
    ```
    Error: [firebase/not-initialized]
    ```
-   - Check firebase_options.dart configuration
+   - Check `--dart-define` values in `run_dev.sh` or launch config
    - Verify google-services.json placement
    - Confirm build.gradle setup
 
@@ -534,3 +527,30 @@ Planned features:
 13. Support program analytics
 14. Beneficiary tracking system
 15. Emergency response system
+
+## Architecture
+
+This project follows **Clean Architecture** with three layers under `lib/`:
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| **Domain** | `lib/domain/` | Entities, repository interfaces, use cases (no Firebase imports) |
+| **Data** | `lib/data/` | Data sources, DTOs, repository implementations |
+| **Presentation** | `lib/presentation/` | Screens, providers, UI wiring via use cases |
+
+Legacy screens under `lib/screens/` and `lib/services/` remain as thin adapters during incremental migration. Auth flows (login, register, profile) are fully migrated.
+
+Dependency injection is wired in `lib/presentation/providers/app_providers.dart` and registered in `main.dart` via `MultiProvider`.
+
+## Firebase Configuration & Secrets
+
+Firebase credentials are **not** committed. They are passed at compile time via `--dart-define`:
+
+1. Copy `.env.example` values into `run_dev.sh` (gitignored).
+2. Run locally: `./run_dev.sh` or pass defines manually to `flutter run` / `flutter build`.
+
+**Security note:** Firebase client API keys ship inside every installed app and are protected by Firestore Security Rules, not by hiding them in git. If keys were ever exposed in git history, rotate them in the [Firebase Console](https://console.firebase.google.com/) for true remediation. Git history was sanitized to remove `firebase_options.dart`, but cached GitHub blobs may persist until garbage-collected.
+
+## Release Logging
+
+Use `AppLogger` (`lib/core/utils/logger.dart`) instead of `print()`. Debug/info logs are suppressed in release builds; FCM tokens and other sensitive values are never logged.

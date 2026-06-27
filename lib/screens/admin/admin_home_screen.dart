@@ -15,7 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:our_community_fund/providers/theme_provider.dart';
 import 'package:our_community_fund/screens/admin/payment_requests_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:our_community_fund/core/utils/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -762,9 +762,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser != null) {
-        if (kDebugMode) {
-          print('Testing notification for user: ${currentUser.uid}');
-        }
+        AppLogger.debug('Testing notification for user: ${currentUser.uid}');
         await _notificationService.sendTestNotification(currentUser.uid);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -776,9 +774,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen>
         }
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Error sending test notification: $e');
-      }
+      AppLogger.error('Error sending test notification', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

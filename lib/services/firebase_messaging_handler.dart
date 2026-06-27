@@ -1,15 +1,8 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:our_community_fund/core/utils/logger.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // This handler needs to be a top-level function
-  if (kDebugMode) {
-    print('Handling background message: ${message.messageId}');
-    print('Message data: ${message.data}');
-    print('Message notification: ${message.notification?.title}');
-  }
-
-  // Add any background message handling logic here
-  // Note: This runs in a background isolate, so you can't access UI or most plugins
+  AppLogger.debug('Handling background message: ${message.messageId}');
+  AppLogger.debug('Message notification: ${message.notification?.title}');
 }
